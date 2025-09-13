@@ -39,38 +39,26 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
     console.log('Processing direct upload:', req.file.originalname);
 
     // get userId TO-DO
-    const userId = req.userId ?? process.env.USER_ID ?? 'unknown'
+      const userId = req.userId ?? process.env.USER_ID ?? 'unknown'
 
     // Generate product ID
     const timestamp = Date.now();
     const productId = `prod_${timestamp}_direct`;
     
-    // Step 1: Upload image to S3
-    console.log(`Uploading image to S3 for product ${productId}`);
-    const s3UploadResult = await s3Service.uploadImage(
-      productId,
+    // Analyze image directly from buffer
+    const extractedData = await geminiService.analyzeProductImageDirect(
       req.file.buffer,
-      req.file.originalname,
       req.file.mimetype
     );
     
-    console.log(`Image uploaded to S3: ${s3UploadResult.imageUrl}`);
-    
-    // Step 2: Generate presigned URL for Gemini to access the image
-    const presignedReadUrl = await s3Service.getPresignedReadUrl(s3UploadResult.s3Key, 3600); // 1 hour expiry
-    console.log(`Generated presigned read URL for Gemini analysis`);
-    
-    // Step 3: Analyze image using the presigned URL
-    const extractedData = await geminiService.analyzeProductImage(presignedReadUrl);
-    
-    // Step 4: Generate additional content
+    // Generate additional content
     const generatedContent = await geminiService.generateProductContent(extractedData);
     
     // Step 5: Format for MongoDB with S3 URL
     const mongoDBData = DataFormatter.formatForDynamoDB(
       userId,
       productId,
-      s3UploadResult.imageUrl, // Use S3 URL
+      null, // No image URL since we processed directly
       extractedData,
       generatedContent
     );
@@ -82,7 +70,7 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
       etag: s3UploadResult.etag,
       uploadedAt: s3UploadResult.uploadedAt
     };
-    
+
     mongoDBData.fileInfo = {
       originalName: req.file.originalname,
       size: req.file.size,
@@ -129,17 +117,6 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
     
   } catch (error) {
     console.error('Direct upload error:', error);
-    
-    // If there was an S3 upload but processing failed later, clean it up
-    if (error.s3Key) {
-      try {
-        await s3Service.deleteImage(error.s3Key);
-        console.log('Cleaned up S3 image after processing failure');
-      } catch (cleanupError) {
-        console.error('Failed to cleanup S3 image:', cleanupError.message);
-      }
-    }
-    
     res.status(500).json({
       error: 'Failed to process image',
       details: error.message
