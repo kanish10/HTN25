@@ -9,6 +9,7 @@ dotenv.config();
 const uploadRoutes = require('./routes/uploadRoutes');
 const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
+const dynamoDBRoutes = require('./routes/dynamoDBRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -43,6 +44,7 @@ app.get('/health', (req, res) => {
 app.use('/api', uploadRoutes);
 app.use('/api', directUploadRoutes);
 app.use('/api', shopifyRoutes);
+app.use('/api/db', dynamoDBRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -59,7 +61,11 @@ app.get('/', (req, res) => {
       publish: 'POST /api/publish/:productId',
       shopifyProduct: 'GET /api/shopify/product/:productId',
       updateStatus: 'PATCH /api/shopify/product/:productId/status',
-      deleteProduct: 'DELETE /api/shopify/product/:productId'
+      deleteProduct: 'DELETE /api/shopify/product/:productId',
+      listProducts: 'GET /api/db/products',
+      getProduct: 'GET /api/db/products/:productId',
+      updateProductStatus: 'PUT /api/db/products/:productId/status',
+      deleteFromDB: 'DELETE /api/db/products/:productId'
     }
   });
 });
