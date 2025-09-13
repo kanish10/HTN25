@@ -1,22 +1,29 @@
 const { v4: uuidv4 } = require('uuid');
 
 class DataFormatter {
-  static formatForDynamoDB(userId, productId, imageUrl, extractedData, generatedContent) {
+  static formatForDynamoDB(productId, imageUrl, extractedData, generatedContent, multiImageData = null) {
     const timestamp = new Date().toISOString();
-    
+
     // Calculate estimated shipping dimensions and weight
     const shippingData = this.calculateShippingOptimization(extractedData.dimensions, extractedData.estimatedWeight);
-    
+
     // Estimate AI processing costs (mock calculation)
-    const aiCosts = this.calculateAICosts(extractedData, generatedContent);
-    
+    const aiCosts = this.calculateAICosts(extractedData, generatedContent, multiImageData);
+
     return {
-        userId,
       productId,
+      userId: 'default-user', // Default user ID for now
       createdAt: timestamp,
       status: 'analyzed', // uploaded | analyzing | analyzed | ready_to_publish | published
       imageUrl,
-      
+
+      // Multi-image data
+      multiImageData: multiImageData || {
+        totalImages: 1,
+        selectedImageIndex: 0,
+        allImageUrls: [imageUrl]
+      },
+
       extractedData: {
         productType: extractedData.productType,
         category: extractedData.category,
@@ -34,9 +41,24 @@ class DataFormatter {
         suggestedPrice: {
           min: Number(extractedData.suggestedPrice.min),
           max: Number(extractedData.suggestedPrice.max)
+        },
+        // New Shopify-specific fields
+        shopifyCollections: extractedData.shopifyCollections || [],
+        variants: {
+          colors: extractedData.variants?.colors || [],
+          sizes: extractedData.variants?.sizes || [],
+          materials: extractedData.variants?.materials || [],
+          styles: extractedData.variants?.styles || []
+        },
+        imageQuality: extractedData.imageQuality || {
+          clarity: "5",
+          lighting: "5",
+          angle: "5",
+          background: "5",
+          overall: "5"
         }
       },
-      
+
       generatedContent: {
         title: generatedContent.title,
         description: generatedContent.description,
@@ -46,11 +68,12 @@ class DataFormatter {
         abVariants: generatedContent.abVariants || {},
         aiCosts: aiCosts
       },
-      
+
       shippingData: shippingData,
-      
+
       // Shopify fields (empty until published)
       shopifyProductId: null,
+      shopifyVariantIds: [],
       publishedAt: null
     };
   }
@@ -107,17 +130,18 @@ class DataFormatter {
     };
   }
 
-  static calculateAICosts(extractedData, generatedContent) {
+  static calculateAICosts(extractedData, generatedContent, multiImageData = null) {
     // Mock AI cost calculation based on API usage
-    const imageCost = 0.03; // Gemini Vision cost per image
+    const imagesAnalyzed = multiImageData ? multiImageData.totalImages : 1;
+    const imageCost = 0.03 * imagesAnalyzed; // Gemini Vision cost per image
     const textTokens = JSON.stringify(generatedContent).length / 4; // Rough token estimate
     const textCost = (textTokens / 1000) * 0.002; // Mock text generation cost
-    
+
     const breakdown = [
       {
         service: 'Gemini Vision',
-        operation: 'Image Analysis',
-        cost: imageCost
+        operation: `Image Analysis (${imagesAnalyzed} images)`,
+        cost: Math.round(imageCost * 100) / 100
       },
       {
         service: 'Gemini Pro',
@@ -125,17 +149,18 @@ class DataFormatter {
         cost: Math.round(textCost * 100) / 100
       }
     ];
-    
+
     const total = breakdown.reduce((sum, item) => sum + item.cost, 0);
-    
+
     return {
       breakdown,
-      total: Math.round(total * 100) / 100
+      total: Math.round(total * 100) / 100,
+      imagesAnalyzed
     };
   }
 
-  static createAnalysisResponse(dynamoDBData) {
-    return {
+  static createAnalysisResponse(dynamoDBData, bestAnalysis = null) {
+    const response = {
       success: true,
       productId: dynamoDBData.productId,
       status: dynamoDBData.status,
@@ -144,9 +169,24 @@ class DataFormatter {
         generatedContent: dynamoDBData.generatedContent,
         shippingData: dynamoDBData.shippingData,
         imageUrl: dynamoDBData.imageUrl,
+        multiImageData: dynamoDBData.multiImageData,
         createdAt: dynamoDBData.createdAt
       }
     };
+
+    // Add multi-image analysis details if available
+    if (bestAnalysis) {
+      response.data.imageAnalysis = {
+        selectedImage: {
+          index: bestAnalysis.selectedIndex,
+          url: bestAnalysis.selectedImageUrl
+        },
+        totalImagesAnalyzed: bestAnalysis.totalImagesAnalyzed,
+        analysisScores: bestAnalysis.allAnalyses
+      };
+    }
+
+    return response;
   }
 }
 

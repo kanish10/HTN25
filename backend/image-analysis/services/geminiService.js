@@ -89,7 +89,7 @@ Analyze this product image and extract the following information in JSON format:
   "category": "general category (e.g., 'Bags', 'Kitchen', 'Footwear')",
   "dimensions": {
     "length": "estimated length in inches",
-    "width": "estimated width in inches", 
+    "width": "estimated width in inches",
     "height": "estimated height in inches"
   },
   "estimatedWeight": "estimated weight in pounds",
@@ -104,10 +104,27 @@ Analyze this product image and extract the following information in JSON format:
   },
   "description": "detailed product description for e-commerce",
   "bulletPoints": ["key", "selling", "points", "array"],
-  "seoTags": ["relevant", "keywords", "for", "seo"]
+  "seoTags": ["relevant", "keywords", "for", "seo"],
+  "shopifyCollections": ["suggested", "shopify", "collections", "for", "this", "product"],
+  "variants": {
+    "colors": ["available", "color", "options", "if", "applicable"],
+    "sizes": ["available", "size", "options", "if", "applicable"],
+    "materials": ["material", "variants", "if", "applicable"],
+    "styles": ["style", "variants", "if", "applicable"]
+  },
+  "imageQuality": {
+    "clarity": "score 1-10 for image sharpness and focus",
+    "lighting": "score 1-10 for lighting quality",
+    "angle": "score 1-10 for product visibility and angle",
+    "background": "score 1-10 for background quality",
+    "overall": "overall image quality score 1-10"
+  }
 }
 
 Be specific and accurate with measurements and materials. Base price estimates on similar products in the market.
+For Shopify collections, suggest relevant categories like "Featured Products", "New Arrivals", product category names, etc.
+For variants, only suggest realistic options based on what you can see or infer from the product.
+Image quality scores help select the best image when multiple are provided.
 Return ONLY valid JSON, no additional text.
 `;
   }
@@ -167,6 +184,122 @@ Return ONLY valid JSON, no additional text.
     }
   }
 
+  async analyzeMultipleImages(imageUrls) {
+    console.log(`Analyzing ${imageUrls.length} images to select the best one...`);
+
+    const analyses = [];
+
+    for (let i = 0; i < imageUrls.length; i++) {
+      const imageUrl = imageUrls[i];
+      console.log(`Analyzing image ${i + 1}/${imageUrls.length}...`);
+
+      try {
+        const extractedData = await this.analyzeProductImage(imageUrl);
+        const score = this.calculateImageScore(extractedData);
+
+        analyses.push({
+          index: i,
+          imageUrl,
+          extractedData,
+          score,
+          error: null
+        });
+
+        console.log(`Image ${i + 1} analyzed - Quality Score: ${score.toFixed(2)}`);
+
+      } catch (error) {
+        console.error(`Failed to analyze image ${i + 1}:`, error.message);
+        analyses.push({
+          index: i,
+          imageUrl,
+          extractedData: null,
+          score: 0,
+          error: error.message
+        });
+      }
+    }
+
+    // Select best analysis
+    const bestAnalysis = analyses.reduce((best, current) => {
+      return current.score > best.score ? current : best;
+    });
+
+    if (!bestAnalysis.extractedData) {
+      throw new Error('Failed to analyze any of the provided images');
+    }
+
+    console.log(`Selected image ${bestAnalysis.index + 1} as best (score: ${bestAnalysis.score.toFixed(2)})`);
+
+    // Generate content for the best analysis
+    const generatedContent = await this.generateProductContent(bestAnalysis.extractedData);
+
+    return {
+      selectedImageUrl: bestAnalysis.imageUrl,
+      selectedIndex: bestAnalysis.index,
+      extractedData: bestAnalysis.extractedData,
+      generatedContent,
+      totalImagesAnalyzed: imageUrls.length,
+      allAnalyses: analyses.map(a => ({
+        index: a.index,
+        imageUrl: a.imageUrl,
+        score: a.score,
+        error: a.error
+      }))
+    };
+  }
+
+  calculateImageScore(extractedData) {
+    if (!extractedData || extractedData._fallbackData) {
+      return 0;
+    }
+
+    let score = 0;
+
+    // Image quality scores (40% of total)
+    if (extractedData.imageQuality) {
+      const qualityScore = (
+        (parseInt(extractedData.imageQuality.clarity) || 0) +
+        (parseInt(extractedData.imageQuality.lighting) || 0) +
+        (parseInt(extractedData.imageQuality.angle) || 0) +
+        (parseInt(extractedData.imageQuality.background) || 0) +
+        (parseInt(extractedData.imageQuality.overall) || 0)
+      ) / 5;
+      score += qualityScore * 4; // Weight: 40%
+    }
+
+    // Data completeness (60% of total)
+    let completenessScore = 0;
+    const checkFields = [
+      'productType', 'category', 'material', 'color', 'suggestedName',
+      'dimensions', 'suggestedPrice', 'description'
+    ];
+
+    checkFields.forEach(field => {
+      if (extractedData[field]) {
+        if (typeof extractedData[field] === 'object') {
+          // For objects like dimensions, check if they have values
+          if (Object.keys(extractedData[field]).length > 0) {
+            completenessScore += 1;
+          }
+        } else if (typeof extractedData[field] === 'string') {
+          // For strings, check if non-empty and not generic
+          if (extractedData[field].length > 3 &&
+              !extractedData[field].toLowerCase().includes('unavailable') &&
+              !extractedData[field].toLowerCase().includes('analysis')) {
+            completenessScore += 1;
+          }
+        } else {
+          completenessScore += 1;
+        }
+      }
+    });
+
+    const completenessPercentage = (completenessScore / checkFields.length) * 10;
+    score += completenessPercentage * 6; // Weight: 60%
+
+    return Math.min(score, 100); // Cap at 100
+  }
+
   generateFallbackData(isContent = false) {
     if (isContent) {
       return {
@@ -216,6 +349,20 @@ Return ONLY valid JSON, no additional text.
         "Full analysis coming soon"
       ],
       seoTags: ["product", "general", "limited-analysis"],
+      shopifyCollections: ["General"],
+      variants: {
+        colors: [],
+        sizes: [],
+        materials: [],
+        styles: []
+      },
+      imageQuality: {
+        clarity: "5",
+        lighting: "5",
+        angle: "5",
+        background: "5",
+        overall: "5"
+      },
       _fallbackData: true
     };
   }
@@ -241,8 +388,28 @@ Return ONLY valid JSON, no additional text.
 
         return extractedData;
       } catch (parseError) {
-        console.error('Failed to parse Gemini response as JSON:', cleanedText);
-        throw new Error('Invalid JSON response from Gemini API');
+        console.error('JSON parse error:', parseError.message);
+        console.error('Raw response length:', text.length);
+        console.error('Cleaned response length:', cleanedText.length);
+        console.error('First 500 chars of cleaned response:', cleanedText.substring(0, 500));
+
+        // Try more aggressive cleaning
+        try {
+          const moreCleanedText = cleanedText
+            .replace(/^\s*```\s*json\s*/i, '')
+            .replace(/```\s*$/i, '')
+            .replace(/^\s*{\s*\n/, '{\n')
+            .replace(/\n\s*}\s*$/, '\n}')
+            .trim();
+
+          const extractedData = JSON.parse(moreCleanedText);
+          this.validateExtractedData(extractedData);
+          console.log('✅ Successfully parsed with aggressive cleaning');
+          return extractedData;
+        } catch (secondParseError) {
+          console.error('Second parse attempt failed:', secondParseError.message);
+          throw new Error('Invalid JSON response from Gemini API');
+        }
       }
     } catch (error) {
       if (error instanceof QuotaExhaustedError) {
@@ -255,26 +422,39 @@ Return ONLY valid JSON, no additional text.
 
   validateExtractedData(data) {
     const requiredFields = [
-      'productType', 'category', 'dimensions', 'material', 
+      'productType', 'category', 'dimensions', 'material',
       'color', 'suggestedName', 'suggestedPrice'
     ];
-    
+
     for (const field of requiredFields) {
       if (!data[field]) {
         throw new Error(`Missing required field: ${field}`);
       }
     }
-    
+
     // Validate dimensions
     if (!data.dimensions.length || !data.dimensions.width || !data.dimensions.height) {
       throw new Error('Missing dimension data');
     }
-    
+
     // Validate price range
     if (!data.suggestedPrice.min || !data.suggestedPrice.max) {
       throw new Error('Missing price range data');
     }
-    
+
+    // Validate new fields (optional but should be arrays/objects if present)
+    if (data.shopifyCollections && !Array.isArray(data.shopifyCollections)) {
+      data.shopifyCollections = [];
+    }
+
+    if (data.variants && typeof data.variants !== 'object') {
+      data.variants = { colors: [], sizes: [], materials: [], styles: [] };
+    }
+
+    if (data.imageQuality && typeof data.imageQuality !== 'object') {
+      data.imageQuality = { clarity: "5", lighting: "5", angle: "5", background: "5", overall: "5" };
+    }
+
     return true;
   }
 

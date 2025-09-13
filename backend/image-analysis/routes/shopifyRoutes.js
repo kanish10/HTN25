@@ -66,7 +66,8 @@ router.post('/publish/:productId', async (req, res) => {
         shopifyProductId: result.productId,
         productUrl: result.productUrl,
         publicUrl: result.publicUrl,
-        publishedAt: new Date().toISOString()
+        publishedAt: new Date().toISOString(),
+        collections: result.collections
       }
     });
 

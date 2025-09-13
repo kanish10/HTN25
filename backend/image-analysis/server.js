@@ -7,6 +7,7 @@ dotenv.config();
 
 // Now import routes (after env vars are loaded)
 const uploadRoutes = require('./routes/uploadRoutes');
+const multiImageRoutes = require('./routes/multiImageRoutes');
 const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
 const dynamoDBRoutes = require('./routes/dynamoDBRoutes');
@@ -43,6 +44,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api', uploadRoutes);
+app.use('/api', multiImageRoutes);
 app.use('/api', directUploadRoutes);
 app.use('/api', shopifyRoutes);
 app.use('/api/db', dynamoDBRoutes);
