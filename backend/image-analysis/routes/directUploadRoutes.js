@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const GeminiService = require('../services/geminiService');
 const DataFormatter = require('../utils/dataFormatter');
+const DynamoDBService = require('../services/dynamoDBService');
 
 const router = express.Router();
 
@@ -22,6 +23,7 @@ const upload = multer({
 });
 
 const geminiService = new GeminiService();
+const dynamoDBService = new DynamoDBService();
 
 // POST /direct-upload - Upload image directly and analyze
 router.post('/direct-upload', upload.single('image'), async (req, res) => {
@@ -62,6 +64,15 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
       mimeType: req.file.mimetype,
       processedDirectly: true
     };
+    
+    // Upload to DynamoDB
+    try {
+      await dynamoDBService.uploadProduct(dynamoDBData);
+      console.log(`Product ${productId} successfully uploaded to DynamoDB`);
+    } catch (dbError) {
+      console.error('DynamoDB upload failed:', dbError.message);
+      // Continue with response even if DB upload fails
+    }
     
     const response = DataFormatter.createAnalysisResponse(dynamoDBData);
     res.json(response);
