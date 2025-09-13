@@ -111,6 +111,20 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
     }
     
     const response = DataFormatter.createAnalysisResponse(dynamoDBData);
+
+    // Auto-store product data for shipping calculations
+    try {
+      const axios = require('axios');
+      await axios.post(`http://localhost:${process.env.PORT || 3002}/api/shipping/store-product`, {
+        productId: productId,
+        productData: dynamoDBData
+      });
+      console.log(`📦 Product ${productId} automatically stored for shipping calculations`);
+    } catch (storeError) {
+      console.warn('⚠️ Failed to auto-store product for shipping:', storeError.message);
+      // Don't fail the main request if shipping storage fails
+    }
+
     res.json(response);
     
   } catch (error) {
