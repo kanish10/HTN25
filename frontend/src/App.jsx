@@ -3,9 +3,10 @@ import { motion } from "framer-motion";
 import {
   Upload, Wand2, Box, Zap, CheckCircle, Github, ExternalLink,
   AlertCircle, ChevronDown, ChevronUp, Package, Tag, DollarSign, Truck,
-  LogIn, LogOut, User
+  LogIn, LogOut, User, Calculator
 } from "lucide-react";
 import axios from "axios";
+import ShippingCalculator from "./ShippingCalculator";
 import "./App.css"; // keep your current CSS
 
 // ========= Config =========
@@ -361,6 +362,9 @@ const Nav = ({ onNav, route }) => {
         <nav className="nav-links">
           <button className={`link ${route === "home" ? "active" : ""}`} onClick={() => onNav("home")}>Home</button>
           <button className={`link ${route === "upload" ? "active" : ""}`} onClick={() => onNav("upload")}>Upload</button>
+          <button className={`link ${route === "shipping" ? "active" : ""}`} onClick={() => onNav("shipping")}>
+            <Calculator size={14} /> Shipping
+          </button>
           {authed ? (
             <>
               <button className={`link ${route === "dashboard" ? "active" : ""}`} onClick={() => onNav("dashboard")}>Dashboard</button>
@@ -410,7 +414,8 @@ const HomePage = ({ onStart }) => (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
           <div className="card stack">
             <div className="row"><div className="icon-box"><Wand2 size={18} /></div><div><p className="row-title">From photo → listing</p><p className="row-sub">Title, bullets, FAQ, SEO in one go.</p></div></div>
-            <div className="row"><div className="icon-box"><Box size={18} /></div><div><p className="row-title">Smart box pick</p><p className="row-sub">Cheapest box that fits—dim weight aware.</p></div></div>
+            <div className="row"><div className="icon-box"><Box size={18} /></div><div><p className="row-title">3D Bin Packing</p><p className="row-sub">NP-Hard optimization with AI strategy.</p></div></div>
+            <div className="row"><div className="icon-box"><Calculator size={18} /></div><div><p className="row-title">Multi-Item Optimizer</p><p className="row-sub">Calculate optimal shipping for bulk orders.</p></div></div>
             <div className="row"><div className="icon-box"><Zap size={18} /></div><div><p className="row-title">One-click publish</p><p className="row-sub">Push to Shopify with metafields.</p></div></div>
           </div>
         </motion.div>
@@ -682,6 +687,7 @@ export default function App() {
       <Nav onNav={nav} route={route} />
       {route === "home" && <HomePage onStart={() => nav("upload")} />}
       {route === "upload" && <UploadPage />}
+      {route === "shipping" && <ShippingCalculator />}
       {route === "login" && <LoginPage onLoggedIn={() => nav("dashboard")} />}
       {route === "dashboard" && (authed ? <DashboardPage onLogout={() => { clearAuth(); nav("login"); }} /> : <LoginPage onLoggedIn={() => nav("dashboard")} />)}
       <Footer />
