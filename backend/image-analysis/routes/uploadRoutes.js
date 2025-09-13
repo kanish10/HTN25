@@ -2,14 +2,14 @@ const express = require('express');
 const S3Service = require('../services/s3Service');
 const GeminiService = require('../services/geminiService');
 const DataFormatter = require('../utils/dataFormatter');
-const DynamoDBService = require('../services/dynamoDBService');
+const MongoDBService = require('../services/mongoDBService');
 
 const router = express.Router();
 
 // Initialize services
 const s3Service = new S3Service();
 const geminiService = new GeminiService();
-const dynamoDBService = new DynamoDBService();
+const mongoDBService = new MongoDBService();
 
 // POST /upload - Generate presigned URL for single image upload (simplified)
 router.post('/upload', async (req, res) => {
@@ -94,8 +94,8 @@ router.post('/analyze/:productId', async (req, res) => {
       bestAnalysis = await geminiService.analyzeMultipleImages(imageUrls);
     }
 
-    // Step 3: Format data for DynamoDB
-    const dynamoDBData = DataFormatter.formatForDynamoDB(
+    // Step 3: Format data for MongoDB
+    const mongoDBData = DataFormatter.formatForDynamoDB(
       productId,
       bestAnalysis.selectedImageUrl,
       bestAnalysis.extractedData,
@@ -106,20 +106,20 @@ router.post('/analyze/:productId', async (req, res) => {
         allImageUrls: imageUrls
       }
     );
-
+    
     console.log(`Analysis completed successfully. Best image: ${bestAnalysis.selectedIndex + 1}/${imageUrls.length}`);
-
-    // Upload to DynamoDB
+    
+    // Upload to MongoDB
     try {
-      await dynamoDBService.uploadProduct(dynamoDBData);
-      console.log(`Product ${productId} successfully uploaded to DynamoDB`);
+      await mongoDBService.uploadProduct(mongoDBData);
+      console.log(`Product ${productId} successfully uploaded to MongoDB`);
     } catch (dbError) {
-      console.error('DynamoDB upload failed:', dbError.message);
+      console.error('MongoDB upload failed:', dbError.message);
       // Continue with response even if DB upload fails
     }
 
     // Return formatted response
-    const response = DataFormatter.createAnalysisResponse(dynamoDBData, bestAnalysis);
+    const response = DataFormatter.createAnalysisResponse(mongoDBData, bestAnalysis);
     res.json(response);
 
   } catch (error) {
@@ -136,9 +136,9 @@ router.get('/status/:productId', async (req, res) => {
   try {
     const { productId } = req.params;
     
-    // Query DynamoDB for actual status
+    // Query MongoDB for actual status
     try {
-      const product = await dynamoDBService.getProduct(productId);
+      const product = await mongoDBService.getProduct(productId);
       res.json({
         productId,
         status: product.status,
