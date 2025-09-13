@@ -1,0 +1,16 @@
+route to any target model & use cost optimised routing.
+task-based routing!
+
+
+
+one product. we want them to be able to order multiple products. figure out EXACT size needed for containers, multi agent LLM routing needed to clock on different reasoning models etc
+ONLY text
+
+Strategy analysis → Claude/GPT-4 (reasoning)
+Mathematical optimization → GPT-4 (calculations)
+Validation → Claude-3-Sonnet (fast checks)
+Human instructions → GPT-4 (clarity)
+
+Hybrid Solution: Combines LLM intelligence with algorithmic bin packing for best results
+Real Shopify Integration: Can be used as a carrier service for actual checkout calculations
+Cost Optimization: Shows exact savings vs. standard shipping methods

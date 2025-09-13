@@ -9,9 +9,11 @@
     "test": "node tests/test-analysis.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.17.1",
     "@aws-sdk/client-dynamodb": "^3.637.0",
+    "@aws-sdk/client-s3": "^3.888.0",
     "@aws-sdk/lib-dynamodb": "^3.637.0",
+    "@aws-sdk/s3-request-presigner": "^3.888.0",
+    "@google/generative-ai": "^0.17.1",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
