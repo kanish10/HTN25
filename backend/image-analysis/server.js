@@ -9,7 +9,7 @@ dotenv.config();
 const uploadRoutes = require('./routes/uploadRoutes');
 const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
-const dynamoDBRoutes = require('./routes/dynamoDBRoutes');
+const mongoDBRoutes = require('./routes/mongoDBRoutes');
 const s3Routes = require('./routes/s3Routes');
 
 const app = express();
@@ -45,7 +45,7 @@ app.get('/health', (req, res) => {
 app.use('/api', uploadRoutes);
 app.use('/api', directUploadRoutes);
 app.use('/api', shopifyRoutes);
-app.use('/api/db', dynamoDBRoutes);
+app.use('/api/db', mongoDBRoutes);
 app.use('/api/s3', s3Routes);
 
 // Root endpoint
@@ -106,7 +106,7 @@ app.listen(PORT, () => {
   console.log(`📋 API docs: http://localhost:${PORT}/`);
   
   // Verify environment variables
-  const requiredEnvVars = ['GEMINI_API_KEY', 'AWS_ACCESS_KEY_ID', 'S3_BUCKET_NAME', 'SHOPIFY_SHOP_NAME', 'SHOPIFY_ACCESS_TOKEN'];
+  const requiredEnvVars = ['GEMINI_API_KEY', 'AWS_ACCESS_KEY_ID', 'S3_BUCKET_NAME', 'SHOPIFY_SHOP_NAME', 'SHOPIFY_ACCESS_TOKEN', 'MONGODB_URI'];
   const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
   
   if (missingVars.length > 0) {
