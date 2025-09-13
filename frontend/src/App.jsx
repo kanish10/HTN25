@@ -284,7 +284,7 @@ const Nav = ({ onNav, route }) => {
               <button className="link" onClick={() => { clearAuth(); onNav("login"); }}><LogOut size={14}/> Logout</button>
             </>
           ) : (
-            <button className={`link ${route === "login" ? "active" : ""}`} onClick={() => onNav("login")}><LogIn size={14}/> Login</button>
+            <button className={`link ${route === "login" ? "active" : ""}`} onClick={() => onNav("login")}>Login</button>
           )}
           <a className="pill" href="https://github.com/" target="_blank" rel="noreferrer">
             <Github size={14} /> Repo
