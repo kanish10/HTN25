@@ -45,20 +45,32 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
     const timestamp = Date.now();
     const productId = `prod_${timestamp}_direct`;
     
-    // Analyze image directly from buffer
-    const extractedData = await geminiService.analyzeProductImageDirect(
+    // Step 1: Upload image to S3
+    console.log(`Uploading image to S3 for product ${productId}`);
+    const s3UploadResult = await s3Service.uploadImage(
+      productId,
       req.file.buffer,
+      req.file.originalname,
       req.file.mimetype
     );
     
-    // Generate additional content
+    console.log(`Image uploaded to S3: ${s3UploadResult.imageUrl}`);
+    
+    // Step 2: Generate presigned URL for Gemini to access the image
+    const presignedReadUrl = await s3Service.getPresignedReadUrl(s3UploadResult.s3Key, 3600); // 1 hour expiry
+    console.log(`Generated presigned read URL for Gemini analysis`);
+    
+    // Step 3: Analyze image using the presigned URL
+    const extractedData = await geminiService.analyzeProductImage(presignedReadUrl);
+    
+    // Step 4: Generate additional content
     const generatedContent = await geminiService.generateProductContent(extractedData);
     
     // Step 5: Format for MongoDB with S3 URL
     const mongoDBData = DataFormatter.formatForDynamoDB(
       userId,
       productId,
-      null, // No image URL since we processed directly
+      s3UploadResult.imageUrl, // Use S3 URL
       extractedData,
       generatedContent
     );
@@ -117,6 +129,17 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
     
   } catch (error) {
     console.error('Direct upload error:', error);
+    
+    // If there was an S3 upload but processing failed later, clean it up
+    if (error.s3Key) {
+      try {
+        await s3Service.deleteImage(error.s3Key);
+        console.log('Cleaned up S3 image after processing failure');
+      } catch (cleanupError) {
+        console.error('Failed to cleanup S3 image:', cleanupError.message);
+      }
+    }
+    
     res.status(500).json({
       error: 'Failed to process image',
       details: error.message
