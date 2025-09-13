@@ -11,6 +11,7 @@ const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
 const dynamoDBRoutes = require('./routes/dynamoDBRoutes');
 const s3Routes = require('./routes/s3Routes');
+const shippingRoutes = require('./routes/shippingRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -47,6 +48,7 @@ app.use('/api', directUploadRoutes);
 app.use('/api', shopifyRoutes);
 app.use('/api/db', dynamoDBRoutes);
 app.use('/api/s3', s3Routes);
+app.use('/api', shippingRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -61,6 +63,8 @@ app.get('/', (req, res) => {
       status: 'GET /api/status/:productId',
       shopifyTest: 'GET /api/shopify/test',
       publish: 'POST /api/publish/:productId',
+  shippingCalculate: 'POST /api/shipping/calculate',
+  shopifyCarrierRates: 'POST /api/shopify/shipping-rates',
       shopifyProduct: 'GET /api/shopify/product/:productId',
       updateStatus: 'PATCH /api/shopify/product/:productId/status',
       deleteProduct: 'DELETE /api/shopify/product/:productId',
