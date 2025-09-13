@@ -8,6 +8,7 @@ dotenv.config();
 // Now import routes (after env vars are loaded)
 const uploadRoutes = require('./routes/uploadRoutes');
 const directUploadRoutes = require('./routes/directUploadRoutes');
+const shopifyRoutes = require('./routes/shopifyRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -41,6 +42,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api', uploadRoutes);
 app.use('/api', directUploadRoutes);
+app.use('/api', shopifyRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -52,7 +54,12 @@ app.get('/', (req, res) => {
       upload: 'POST /api/upload',
       analyze: 'POST /api/analyze/:productId',
       directUpload: 'POST /api/direct-upload',
-      status: 'GET /api/status/:productId'
+      status: 'GET /api/status/:productId',
+      shopifyTest: 'GET /api/shopify/test',
+      publish: 'POST /api/publish/:productId',
+      shopifyProduct: 'GET /api/shopify/product/:productId',
+      updateStatus: 'PATCH /api/shopify/product/:productId/status',
+      deleteProduct: 'DELETE /api/shopify/product/:productId'
     }
   });
 });
@@ -82,7 +89,7 @@ app.listen(PORT, () => {
   console.log(`📋 API docs: http://localhost:${PORT}/`);
   
   // Verify environment variables
-  const requiredEnvVars = ['GEMINI_API_KEY', 'AWS_ACCESS_KEY_ID', 'S3_BUCKET_NAME'];
+  const requiredEnvVars = ['GEMINI_API_KEY', 'AWS_ACCESS_KEY_ID', 'S3_BUCKET_NAME', 'SHOPIFY_SHOP_NAME', 'SHOPIFY_ACCESS_TOKEN'];
   const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
   
   if (missingVars.length > 0) {

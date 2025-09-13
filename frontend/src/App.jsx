@@ -34,6 +34,9 @@ const addUpload = (item) => {
 const AnalysisResults = ({ result, processingTime }) => {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [publishStatus, setPublishStatus] = useState("idle"); // idle | publishing | success | error
+  const [publishError, setPublishError] = useState(null);
+  const [publishResult, setPublishResult] = useState(null);
 
   const tabs = [
     { id: "overview", label: "Overview", icon: Package },
@@ -41,6 +44,46 @@ const AnalysisResults = ({ result, processingTime }) => {
     { id: "shipping", label: "Shipping", icon: Truck },
     { id: "pricing", label: "Pricing", icon: DollarSign }
   ];
+
+  const handlePublishToShopify = async () => {
+    setPublishStatus("publishing");
+    setPublishError(null);
+
+    try {
+      const response = await axios.post(`${API_URL}/api/publish/${result.productId || 'temp-id'}`, {
+        extractedData: result.extractedData,
+        generatedContent: result.generatedContent,
+        shippingData: result.shippingData
+      });
+
+      if (response.data.success) {
+        setPublishResult(response.data.data);
+        setPublishStatus("success");
+
+        // Update localStorage with published status
+        const uploads = getUploads();
+        const updatedUploads = uploads.map(upload => {
+          if (upload.title === result.generatedContent.title) {
+            return { ...upload, shopifyHandle: response.data.data.shopifyProductId };
+          }
+          return upload;
+        });
+        localStorage.setItem(UPLOADS_KEY, JSON.stringify(updatedUploads));
+      } else {
+        throw new Error(response.data.message || 'Publishing failed');
+      }
+    } catch (error) {
+      console.error('Publish error:', error);
+      setPublishStatus("error");
+      if (error.response?.data?.message) {
+        setPublishError(error.response.data.message);
+      } else if (error.message?.includes('not configured')) {
+        setPublishError('Shopify not configured. Please check your SHOPIFY_SHOP_NAME and SHOPIFY_ACCESS_TOKEN environment variables.');
+      } else {
+        setPublishError(error.message || 'Failed to publish to Shopify');
+      }
+    }
+  };
 
   return (
     <div className="result">
@@ -238,8 +281,48 @@ const AnalysisResults = ({ result, processingTime }) => {
         </motion.div>
       )}
 
+      {/* Publish Status Messages */}
+      {publishStatus === "success" && publishResult && (
+        <div className="result" style={{ marginTop: '16px', background: '#f0fdf4', borderColor: '#22c55e' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#15803d' }}>
+            <CheckCircle size={16} />
+            <p className="result-title" style={{ color: '#15803d', margin: 0 }}>Published Successfully!</p>
+          </div>
+          <p style={{ margin: '8px 0', fontSize: '14px', color: '#166534' }}>
+            Product created in Shopify as draft. You can review and activate it.
+          </p>
+          <div className="row gap">
+            <a className="btn" href={publishResult.productUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={14} /> Edit in Shopify
+            </a>
+            <a className="btn" href={publishResult.publicUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={14} /> View Product
+            </a>
+          </div>
+        </div>
+      )}
+
+      {publishStatus === "error" && (
+        <div className="result" style={{ marginTop: '16px', background: '#fef2f2', borderColor: '#ef4444' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
+            <AlertCircle size={16} />
+            <p className="result-title" style={{ color: '#dc2626', margin: 0 }}>Publishing Failed</p>
+          </div>
+          <p style={{ margin: '8px 0', fontSize: '14px', color: '#7f1d1d' }}>{publishError}</p>
+          <button className="btn" onClick={() => setPublishStatus("idle")}>Try Again</button>
+        </div>
+      )}
+
       <div className="row gap" style={{ marginTop: '16px' }}>
-        <button className="btn primary">Publish to Shopify</button>
+        <button
+          className="btn primary"
+          disabled={publishStatus === "publishing" || publishStatus === "success"}
+          onClick={handlePublishToShopify}
+        >
+          {publishStatus === "publishing" ? "Publishing..." :
+           publishStatus === "success" ? "Published ✓" :
+           "Publish to Shopify"}
+        </button>
         <button className="btn" onClick={() => console.log('Full analysis:', result)}>
           Export Data
         </button>
