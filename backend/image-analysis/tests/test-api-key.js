@@ -27,7 +27,7 @@ async function testGeminiAPIKey() {
     console.log('\n🧪 Testing API key with simple text request...');
     
     const genAI = new GoogleGenerativeAI(cleanApiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL });
     
     const result = await model.generateContent('Hello, can you respond with just "API key works"?');
     const response = await result.response;
@@ -67,7 +67,7 @@ async function testImageAnalysis() {
   
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL });
     
     // Create a simple test image (1x1 red pixel)
     const testImageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
