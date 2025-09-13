@@ -11,7 +11,7 @@ const multiImageRoutes = require('./routes/multiImageRoutes');
 const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
 const mongoDBRoutes = require('./routes/mongoDBRoutes');
-const s3Routes = require('./routes/s3Routes');
+const s3Routes = require('./routes/S3Routes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
