@@ -1,17 +1,34 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+class QuotaExhaustedError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'QuotaExhaustedError';
+  }
+}
+
 class GeminiService {
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     console.log('🔑 GeminiService - API Key check:', apiKey ? 'Found' : 'Missing');
     console.log('🔑 GeminiService - API Key length:', apiKey ? apiKey.length : 0);
-    
+
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY environment variable is required');
     }
-    
+
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    // Rate limiting configuration
+    this.requestCount = 0;
+    this.dailyLimit = 45; // Set below the 50 request limit for safety
+    this.resetTime = new Date();
+    this.resetTime.setUTCHours(24, 0, 0, 0); // Reset at midnight UTC
+
+    // Retry configuration
+    this.maxRetries = 3;
+    this.baseDelay = 1000; // 1 second base delay
   }
 
   async analyzeProductImage(imageUrl) {
@@ -95,24 +112,144 @@ Return ONLY valid JSON, no additional text.
 `;
   }
 
-  async processImageWithGemini(prompt, imagePart) {
-    const result = await this.model.generateContent([prompt, imagePart]);
-    const response = await result.response;
-    const text = response.text();
-    
-    // Clean up the response and parse JSON
-    const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
+  checkRateLimit() {
+    const now = new Date();
+
+    // Reset counter if we've passed the reset time
+    if (now >= this.resetTime) {
+      this.requestCount = 0;
+      this.resetTime = new Date(now);
+      this.resetTime.setUTCHours(24, 0, 0, 0);
+      console.log('🔄 GeminiService - Daily rate limit reset');
+    }
+
+    if (this.requestCount >= this.dailyLimit) {
+      const timeUntilReset = this.resetTime - now;
+      const hoursUntilReset = Math.ceil(timeUntilReset / (1000 * 60 * 60));
+      throw new Error(`Daily Gemini API limit reached (${this.dailyLimit}/${this.dailyLimit}). Resets in ${hoursUntilReset} hours.`);
+    }
+
+    return true;
+  }
+
+  async sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async makeGeminiRequest(requestFn, retryCount = 0) {
     try {
-      const extractedData = JSON.parse(cleanedText);
-      
-      // Validate required fields
-      this.validateExtractedData(extractedData);
-      
-      return extractedData;
-    } catch (parseError) {
-      console.error('Failed to parse Gemini response as JSON:', cleanedText);
-      throw new Error('Invalid JSON response from Gemini API');
+      this.checkRateLimit();
+
+      const result = await requestFn();
+      this.requestCount++;
+      console.log(`🔢 GeminiService - Request count: ${this.requestCount}/${this.dailyLimit}`);
+
+      return result;
+    } catch (error) {
+      console.error(`🚫 GeminiService - API Error (attempt ${retryCount + 1}):`, error.message);
+
+      // Handle quota exceeded errors
+      if (error.message.includes('429') || error.message.includes('quota') || error.message.includes('Too Many Requests')) {
+        if (retryCount < this.maxRetries) {
+          const delay = this.baseDelay * Math.pow(2, retryCount) + Math.random() * 1000; // Exponential backoff with jitter
+          console.log(`⏳ GeminiService - Retrying in ${delay}ms (attempt ${retryCount + 1}/${this.maxRetries})`);
+
+          await this.sleep(delay);
+          return this.makeGeminiRequest(requestFn, retryCount + 1);
+        }
+
+        console.log('🔄 GeminiService - Quota exhausted, falling back to mock data');
+        throw new QuotaExhaustedError('Gemini API quota exhausted');
+      }
+
+      // Re-throw non-quota errors
+      throw error;
+    }
+  }
+
+  generateFallbackData(isContent = false) {
+    if (isContent) {
+      return {
+        title: "Product Analysis - Limited Service",
+        description: "Product analysis temporarily unavailable. Please contact support for detailed product information.",
+        bulletPoints: [
+          "Service temporarily unavailable",
+          "Contact support for assistance",
+          "Full analysis will be available soon"
+        ],
+        seoTags: ["product", "analysis", "limited"],
+        faq: [
+          {
+            question: "Why is the analysis limited?",
+            answer: "Our analysis service is temporarily at capacity. Please try again later."
+          }
+        ],
+        abVariants: {
+          titleA: "Product Analysis - Limited Service",
+          titleB: "Analysis Temporarily Unavailable"
+        }
+      };
+    }
+
+    return {
+      productType: "product",
+      category: "General",
+      dimensions: {
+        length: "12",
+        width: "8",
+        height: "4"
+      },
+      estimatedWeight: "1.0",
+      material: "mixed materials",
+      color: "various",
+      features: ["Quality product", "Durable construction"],
+      suggestedName: "Product - Analysis Unavailable",
+      targetAudience: "General consumers",
+      suggestedPrice: {
+        min: "19.99",
+        max: "39.99"
+      },
+      description: "Product analysis is temporarily unavailable due to service limitations. Please contact support for detailed product information and specifications.",
+      bulletPoints: [
+        "Service temporarily limited",
+        "Contact support for details",
+        "Full analysis coming soon"
+      ],
+      seoTags: ["product", "general", "limited-analysis"],
+      _fallbackData: true
+    };
+  }
+
+  async processImageWithGemini(prompt, imagePart) {
+    const requestFn = async () => {
+      const result = await this.model.generateContent([prompt, imagePart]);
+      const response = await result.response;
+      return response.text();
+    };
+
+    try {
+      const text = await this.makeGeminiRequest(requestFn);
+
+      // Clean up the response and parse JSON
+      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      try {
+        const extractedData = JSON.parse(cleanedText);
+
+        // Validate required fields
+        this.validateExtractedData(extractedData);
+
+        return extractedData;
+      } catch (parseError) {
+        console.error('Failed to parse Gemini response as JSON:', cleanedText);
+        throw new Error('Invalid JSON response from Gemini API');
+      }
+    } catch (error) {
+      if (error instanceof QuotaExhaustedError) {
+        console.log('🔄 GeminiService - Using fallback data for image analysis');
+        return this.generateFallbackData();
+      }
+      throw error;
     }
   }
 
@@ -165,15 +302,22 @@ Generate additional e-commerce content in JSON format:
 Make it compelling and conversion-focused. Return ONLY valid JSON.
 `;
 
-    try {
+    const requestFn = async () => {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
-      const text = response.text();
-      
+      return response.text();
+    };
+
+    try {
+      const text = await this.makeGeminiRequest(requestFn);
       const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       return JSON.parse(cleanedText);
-      
+
     } catch (error) {
+      if (error instanceof QuotaExhaustedError) {
+        console.log('🔄 GeminiService - Using fallback data for content generation');
+        return this.generateFallbackData(true);
+      }
       console.error('Error generating content with Gemini:', error);
       throw new Error(`Content generation failed: ${error.message}`);
     }
