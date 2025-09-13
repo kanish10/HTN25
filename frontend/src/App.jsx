@@ -505,13 +505,13 @@ const LoginPage = ({ onLoggedIn }) => {
     <Container className="upload">
       <div className="cols">
         <div className="card">
-          <p className="label">Login (Demo)</p>
+          <p className="label">Login</p>
           <form onSubmit={submit} className="dropzone" style={{ gap: 10 }}>
             <input className="text-input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
             <input className="text-input" placeholder="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input className="text-input" placeholder="Shopify store (e.g. my-shop.myshopify.com)" value={store} onChange={(e) => setStore(e.target.value)} />
             <button className="btn primary" type="submit"><LogIn size={16}/> Continue</button>
-            <p className="muted" style={{ marginTop: 4 }}>Demo-only: no password. Used to personalize your dashboard.</p>
+            <p className="muted" style={{ marginTop: 4 }}>Used to personalize your dashboard.</p>
           </form>
         </div>
 
@@ -519,7 +519,7 @@ const LoginPage = ({ onLoggedIn }) => {
           <p className="label">What you get</p>
           <div className="result">
             <ul className="bullets">
-              <li>Connects to <b>your</b> store (demo)</li>
+              <li>Connects to <b>your</b> store</li>
               <li>Shows past uploads & time saved</li>
               <li>One-click publish to Shopify (from Upload page)</li>
             </ul>
