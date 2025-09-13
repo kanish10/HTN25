@@ -286,7 +286,7 @@ const Nav = ({ onNav, route }) => {
           ) : (
             <button className={`link ${route === "login" ? "active" : ""}`} onClick={() => onNav("login")}>Login</button>
           )}
-          <a className="pill" href="https://github.com/" target="_blank" rel="noreferrer">
+          <a className="pill" href="https://github.com/kanish10/HTN25" target="_blank" rel="noreferrer">
             <Github size={14} /> Repo
           </a>
         </nav>
