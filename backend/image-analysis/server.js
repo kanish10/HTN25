@@ -9,6 +9,8 @@ dotenv.config();
 const uploadRoutes = require('./routes/uploadRoutes');
 const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
+const shippingRoutes = require('./routes/shippingRoutes');
+const shopifyCarrierRoutes = require('./routes/shopifyCarrierRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -43,6 +45,8 @@ app.get('/health', (req, res) => {
 app.use('/api', uploadRoutes);
 app.use('/api', directUploadRoutes);
 app.use('/api', shopifyRoutes);
+app.use('/api', shippingRoutes);
+app.use('/api', shopifyCarrierRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -59,7 +63,17 @@ app.get('/', (req, res) => {
       publish: 'POST /api/publish/:productId',
       shopifyProduct: 'GET /api/shopify/product/:productId',
       updateStatus: 'PATCH /api/shopify/product/:productId/status',
-      deleteProduct: 'DELETE /api/shopify/product/:productId'
+      deleteProduct: 'DELETE /api/shopify/product/:productId',
+      shippingCalculate: 'POST /api/shipping/calculate',
+      shippingTest: 'POST /api/shipping/test',
+      shippingCompare: 'POST /api/shipping/compare',
+      shippingBoxes: 'GET /api/shipping/boxes',
+      shippingProducts: 'GET /api/shipping/products',
+      carrierServiceWebhook: 'POST /api/shopify/shipping-rates',
+      setupCarrierService: 'POST /api/shopify/setup-carrier-service',
+      listCarrierServices: 'GET /api/shopify/carrier-services',
+      previewRates: 'POST /api/shopify/preview-rates',
+      linkedProducts: 'GET /api/shopify/linked-products'
     }
   });
 });
