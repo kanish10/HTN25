@@ -3,7 +3,6 @@ const multer = require('multer');
 const GeminiService = require('../services/geminiService');
 const DataFormatter = require('../utils/dataFormatter');
 const DynamoDBService = require('../services/dynamoDBService');
-const S3Service = require('../services/s3Service');
 
 const router = express.Router();
 
@@ -25,7 +24,6 @@ const upload = multer({
 
 const geminiService = new GeminiService();
 const dynamoDBService = new DynamoDBService();
-const s3Service = new S3Service();
 
 // POST /direct-upload - Upload image directly and analyze
 router.post('/direct-upload', upload.single('image'), async (req, res) => {
@@ -39,50 +37,31 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
     console.log('Processing direct upload:', req.file.originalname);
 
     // get userId TO-DO
-    const userId = req.userId ?? process.env.USER_ID ?? 'unknown'
+      const userId = req.userId ?? process.env.USER_ID ?? 'unknown'
 
     // Generate product ID
     const timestamp = Date.now();
     const productId = `prod_${timestamp}_direct`;
     
-    // Step 1: Upload image to S3
-    console.log(`Uploading image to S3 for product ${productId}`);
-    const s3UploadResult = await s3Service.uploadImage(
-      productId,
-      req.file.buffer,
-      req.file.originalname,
+    // Analyze image directly from buffer
+    const extractedData = await geminiService.analyzeProductImageDirect(
+      req.file.buffer, 
       req.file.mimetype
     );
     
-    console.log(`Image uploaded to S3: ${s3UploadResult.imageUrl}`);
-    
-    // Step 2: Generate presigned URL for Gemini to access the image
-    const presignedReadUrl = await s3Service.getPresignedReadUrl(s3UploadResult.s3Key, 3600); // 1 hour expiry
-    console.log(`Generated presigned read URL for Gemini analysis`);
-    
-    // Step 3: Analyze image using the presigned URL
-    const extractedData = await geminiService.analyzeProductImage(presignedReadUrl);
-    
-    // Step 4: Generate additional content
+    // Generate additional content
     const generatedContent = await geminiService.generateProductContent(extractedData);
     
-    // Step 5: Format for DynamoDB with S3 URL
+    // Format for DynamoDB (no S3 URL needed)
     const dynamoDBData = DataFormatter.formatForDynamoDB(
-      userId,
+        userId,
       productId,
-      s3UploadResult.imageUrl, // Use S3 URL
+      null, // No image URL since we processed directly
       extractedData,
       generatedContent
     );
     
-    // Add S3 and file info
-    dynamoDBData.s3Info = {
-      s3Key: s3UploadResult.s3Key,
-      bucket: process.env.S3_BUCKET_NAME,
-      etag: s3UploadResult.etag,
-      uploadedAt: s3UploadResult.uploadedAt
-    };
-    
+    // Add file info
     dynamoDBData.fileInfo = {
       originalName: req.file.originalname,
       size: req.file.size,
@@ -90,24 +69,13 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
       processedDirectly: true
     };
     
-    // Step 5: Upload to DynamoDB
+    // Upload to DynamoDB
     try {
       await dynamoDBService.uploadProduct(dynamoDBData);
       console.log(`Product ${productId} successfully uploaded to DynamoDB`);
     } catch (dbError) {
       console.error('DynamoDB upload failed:', dbError.message);
-      // If DynamoDB fails, we should clean up the S3 upload
-      try {
-        await s3Service.deleteImage(s3UploadResult.s3Key);
-        console.log('Cleaned up S3 image after DynamoDB failure');
-      } catch (cleanupError) {
-        console.error('Failed to cleanup S3 image:', cleanupError.message);
-      }
-      
-      return res.status(500).json({
-        error: 'Failed to save product data',
-        details: dbError.message
-      });
+      // Continue with response even if DB upload fails
     }
     
     const response = DataFormatter.createAnalysisResponse(dynamoDBData);
@@ -115,17 +83,6 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
     
   } catch (error) {
     console.error('Direct upload error:', error);
-    
-    // If there was an S3 upload but processing failed later, clean it up
-    if (error.s3Key) {
-      try {
-        await s3Service.deleteImage(error.s3Key);
-        console.log('Cleaned up S3 image after processing failure');
-      } catch (cleanupError) {
-        console.error('Failed to cleanup S3 image:', cleanupError.message);
-      }
-    }
-    
     res.status(500).json({
       error: 'Failed to process image',
       details: error.message
