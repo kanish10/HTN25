@@ -217,3 +217,38 @@ html,body,.app{
   box-shadow:0 0 0 3px rgba(14,159,110,.12);
 }
 .upload .dropzone te
+
+/* ===== Home spacing / visual rhythm ===== */
+
+/* Give the hero a bottom cushion so the next section never touches it */
+.hero { padding-bottom: 40px; }
+
+/* Use padding (not margin) to avoid margin-collapsing issues */
+.how { padding-top: 56px; }
+
+/* Optional: a subtle divider line between hero and how-it-works */
+.how { border-top: 1px solid #EEF2F5; }
+
+/* Section title spacing */
+.section-title { margin: 0 0 16px 0; }
+
+/* How-it-works grid balance and equal card heights */
+.how .cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+@media (max-width: 900px) { .how .cols { grid-template-columns: 1fr; } }
+.how .card { height: 100%; }
+
+/* Optional: hero type rhythm */
+.hero .hero-title { margin: 0 0 10px 0; line-height: 1.1; }
+.hero .hero-sub   { margin: 0 0 16px 0; color: var(--text-weak); }
+.hero .hero-actions { margin: 16px 0 12px 0; }
+
+/* Nav alignment polish */
+.nav .nav-inner { display: flex; align-items: center; justify-content: space-between; }
+.nav .nav-links { display: flex; align-items: center; gap: 8px; }
+.nav .nav-links .link, .nav .nav-links a { padding: 8px 10px; border-radius: 10px; }
+.nav .nav-links .active { background: #F5F7F9; }
