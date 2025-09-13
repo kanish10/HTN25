@@ -8,6 +8,7 @@
 
 ```json
 {
+  "userId": "user_1234567890_abc123",
   "productId": "prod_1234567890_abc123",
   "createdAt": "2025-01-18T10:30:00Z",
   "status": "published", // uploaded | analyzing | ready_to_publish | published

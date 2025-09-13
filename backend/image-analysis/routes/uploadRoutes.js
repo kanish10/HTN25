@@ -2,12 +2,14 @@ const express = require('express');
 const S3Service = require('../services/s3Service');
 const GeminiService = require('../services/geminiService');
 const DataFormatter = require('../utils/dataFormatter');
+const DynamoDBService = require('../services/dynamoDBService');
 
 const router = express.Router();
 
 // Initialize services
 const s3Service = new S3Service();
 const geminiService = new GeminiService();
+const dynamoDBService = new DynamoDBService();
 
 // POST /upload - Generate presigned URL for image upload
 router.post('/upload', async (req, res) => {
@@ -76,6 +78,15 @@ router.post('/analyze/:productId', async (req, res) => {
     
     console.log('Analysis completed successfully');
     
+    // Upload to DynamoDB
+    try {
+      await dynamoDBService.uploadProduct(dynamoDBData);
+      console.log(`Product ${productId} successfully uploaded to DynamoDB`);
+    } catch (dbError) {
+      console.error('DynamoDB upload failed:', dbError.message);
+      // Continue with response even if DB upload fails
+    }
+    
     // Return formatted response
     const response = DataFormatter.createAnalysisResponse(dynamoDBData);
     res.json(response);
@@ -94,13 +105,23 @@ router.get('/status/:productId', async (req, res) => {
   try {
     const { productId } = req.params;
     
-    // In a real implementation, this would query DynamoDB
-    // For now, return a mock response
-    res.json({
-      productId,
-      status: 'ready_for_analysis',
-      message: 'Product ready for analysis'
-    });
+    // Query DynamoDB for actual status
+    try {
+      const product = await dynamoDBService.getProduct(productId);
+      res.json({
+        productId,
+        status: product.status,
+        createdAt: product.createdAt,
+        message: `Product status: ${product.status}`
+      });
+    } catch (error) {
+      // If product not found, assume it's ready for analysis
+      res.json({
+        productId,
+        status: 'ready_for_analysis',
+        message: 'Product ready for analysis'
+      });
+    }
     
   } catch (error) {
     console.error('Status route error:', error);

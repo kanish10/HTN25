@@ -1,7 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 
 class DataFormatter {
-  static formatForDynamoDB(productId, imageUrl, extractedData, generatedContent) {
+  static formatForDynamoDB(userId, productId, imageUrl, extractedData, generatedContent) {
     const timestamp = new Date().toISOString();
     
     // Calculate estimated shipping dimensions and weight
@@ -11,6 +11,7 @@ class DataFormatter {
     const aiCosts = this.calculateAICosts(extractedData, generatedContent);
     
     return {
+        userId,
       productId,
       createdAt: timestamp,
       status: 'analyzed', // uploaded | analyzing | analyzed | ready_to_publish | published
