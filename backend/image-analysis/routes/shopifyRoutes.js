@@ -44,6 +44,19 @@ router.post('/publish/:productId', async (req, res) => {
     // Publish to Shopify
     const result = await shopifyService.publishProduct(analysisData);
 
+    // Store mapping for shipping optimization
+    try {
+      const axios = require('axios');
+      await axios.post(`http://localhost:${process.env.PORT || 3002}/api/shopify/link-product`, {
+        shopifyProductId: result.productId,
+        analysisProductId: productId,
+        analysisData: analysisData
+      });
+      console.log(`🔗 Linked Shopify product ${result.productId} to analysis data ${productId}`);
+    } catch (linkError) {
+      console.warn('⚠️ Failed to link product for shipping optimization:', linkError.message);
+    }
+
     // Respond with success
     res.json({
       success: true,
