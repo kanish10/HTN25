@@ -2,15 +2,33 @@ const Shopify = require('shopify-api-node');
 
 class ShopifyService {
   constructor() {
-    this.shopify = new Shopify({
-      shopName: process.env.SHOPIFY_SHOP_NAME,
-      accessToken: process.env.SHOPIFY_ACCESS_TOKEN
-    });
-    
-    console.log('🛍️  ShopifyService initialized for shop:', process.env.SHOPIFY_SHOP_NAME);
+    // Check if Shopify credentials are available
+    if (!process.env.SHOPIFY_SHOP_NAME || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      console.warn('⚠️  Shopify credentials not configured. Shopify functionality will be disabled.');
+      this.shopify = null;
+      this.enabled = false;
+      return;
+    }
+
+    try {
+      this.shopify = new Shopify({
+        shopName: process.env.SHOPIFY_SHOP_NAME,
+        accessToken: process.env.SHOPIFY_ACCESS_TOKEN
+      });
+      this.enabled = true;
+      console.log('🛍️  ShopifyService initialized for shop:', process.env.SHOPIFY_SHOP_NAME);
+    } catch (error) {
+      console.error('❌ Failed to initialize Shopify service:', error.message);
+      this.shopify = null;
+      this.enabled = false;
+    }
   }
 
   async publishProduct(analysisData) {
+    if (!this.enabled || !this.shopify) {
+      throw new Error('Shopify service is not configured. Please check your SHOPIFY_SHOP_NAME and SHOPIFY_ACCESS_TOKEN environment variables.');
+    }
+
     try {
       const { extractedData, generatedContent, shippingData } = analysisData;
       
@@ -142,6 +160,10 @@ class ShopifyService {
   }
 
   async updateProductStatus(productId, status = 'active') {
+    if (!this.enabled || !this.shopify) {
+      throw new Error('Shopify service is not configured.');
+    }
+
     try {
       const updatedProduct = await this.shopify.product.update(productId, { status });
       console.log(`📢 Product ${productId} status updated to: ${status}`);
@@ -153,6 +175,10 @@ class ShopifyService {
   }
 
   async getProduct(productId) {
+    if (!this.enabled || !this.shopify) {
+      throw new Error('Shopify service is not configured.');
+    }
+
     try {
       const product = await this.shopify.product.get(productId);
       return product;
@@ -163,6 +189,10 @@ class ShopifyService {
   }
 
   async deleteProduct(productId) {
+    if (!this.enabled || !this.shopify) {
+      throw new Error('Shopify service is not configured.');
+    }
+
     try {
       await this.shopify.product.delete(productId);
       console.log(`🗑️  Product ${productId} deleted`);
@@ -175,6 +205,10 @@ class ShopifyService {
 
   // Test connection to Shopify
   async testConnection() {
+    if (!this.enabled || !this.shopify) {
+      throw new Error('Shopify service is not configured. Please check your SHOPIFY_SHOP_NAME and SHOPIFY_ACCESS_TOKEN environment variables.');
+    }
+
     try {
       const shop = await this.shopify.shop.get();
       console.log('✅ Shopify connection successful:', shop.name);
