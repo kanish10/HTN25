@@ -31,6 +31,9 @@ class ShopifyService {
 
     try {
       const { extractedData, generatedContent, shippingData } = analysisData;
+
+      // Step 1: Create collections if they don't exist
+      const collectionIds = await this.createOrGetCollections(extractedData.shopifyCollections || []);
       
       // Prepare Shopify product data
       const productData = {
@@ -93,15 +96,30 @@ class ShopifyService {
       // Create the product
       console.log('📦 Creating Shopify product:', productData.title);
       const product = await this.shopify.product.create(productData);
-      
+
       console.log('✅ Product created successfully:', product.id);
+
+      // Step 2: Upload product image if imageUrl is provided
+      if (analysisData.imageUrl) {
+        await this.addProductImage(product.id, analysisData.imageUrl);
+      }
+
+      // Step 3: Add product to collections
+      if (collectionIds.length > 0) {
+        await this.addProductToCollections(product.id, collectionIds);
+      }
       
       return {
         success: true,
         productId: product.id,
         productUrl: `https://${process.env.SHOPIFY_SHOP_NAME}.myshopify.com/admin/products/${product.id}`,
         publicUrl: `https://${process.env.SHOPIFY_SHOP_NAME}.myshopify.com/products/${product.handle}`,
-        product: product
+        product: product,
+        collections: {
+          requested: extractedData.shopifyCollections || [],
+          created: collectionIds,
+          count: collectionIds.length
+        }
       };
       
     } catch (error) {
@@ -224,6 +242,137 @@ class ShopifyService {
     } catch (error) {
       console.error('❌ Shopify connection failed:', error);
       throw error;
+    }
+  }
+
+  // Create collections if they don't exist, return collection IDs
+  async createOrGetCollections(collectionNames) {
+    if (!collectionNames || collectionNames.length === 0) {
+      return [];
+    }
+
+    const collectionIds = [];
+
+    for (const collectionName of collectionNames) {
+      try {
+        // First, try to find existing collection
+        const existingCollections = await this.shopify.customCollection.list({
+          title: collectionName,
+          limit: 1
+        });
+
+        let collection;
+        if (existingCollections.length > 0) {
+          collection = existingCollections[0];
+          console.log(`📂 Found existing collection: ${collectionName} (ID: ${collection.id})`);
+        } else {
+          // Create new collection
+          collection = await this.shopify.customCollection.create({
+            title: collectionName,
+            body_html: `<p>AI-curated collection: ${collectionName}</p>`,
+            handle: collectionName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+            published: true,
+            sort_order: 'best-selling',
+            metafields: [
+              {
+                namespace: 'shopbrain',
+                key: 'created_by_ai',
+                value: 'true',
+                type: 'boolean'
+              },
+              {
+                namespace: 'shopbrain',
+                key: 'creation_date',
+                value: new Date().toISOString(),
+                type: 'date_time'
+              }
+            ]
+          });
+          console.log(`✨ Created new collection: ${collectionName} (ID: ${collection.id})`);
+        }
+
+        collectionIds.push(collection.id);
+      } catch (error) {
+        console.error(`❌ Error creating/finding collection "${collectionName}":`, error.message);
+        // Continue with other collections even if one fails
+      }
+    }
+
+    return collectionIds;
+  }
+
+  // Add product image
+  async addProductImage(productId, imageUrl) {
+    if (!imageUrl) {
+      console.log(`⚠️ No image URL provided for product ${productId}`);
+      return;
+    }
+
+    try {
+      // Validate image URL format
+      if (!imageUrl.startsWith('http')) {
+        console.error(`❌ Invalid image URL format for product ${productId}: ${imageUrl}`);
+        return null;
+      }
+
+      console.log(`📸 Attempting to add image to product ${productId}: ${imageUrl}`);
+
+      // Create product image from URL
+      const image = await this.shopify.productImage.create(productId, {
+        src: imageUrl,
+        alt: 'Product image - AI selected best image',
+        position: 1 // Make it the main image
+      });
+
+      console.log(`✅ Successfully added product image to Shopify product ${productId}: ${image.id}`);
+      return image;
+    } catch (error) {
+      console.error(`❌ Error adding image to product ${productId}:`, {
+        message: error.message,
+        statusCode: error.statusCode,
+        body: error.body,
+        imageUrl: imageUrl
+      });
+
+      // Try a fallback approach - sometimes the issue is timing
+      if (error.statusCode === 422) {
+        console.log(`🔄 Retrying image upload for product ${productId} after delay...`);
+        try {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          const retryImage = await this.shopify.productImage.create(productId, {
+            src: imageUrl,
+            alt: 'Product image',
+            position: 1
+          });
+          console.log(`✅ Retry successful - added image to product ${productId}: ${retryImage.id}`);
+          return retryImage;
+        } catch (retryError) {
+          console.error(`❌ Retry failed for product ${productId}:`, retryError.message);
+        }
+      }
+
+      // Continue without failing the entire product creation
+      return null;
+    }
+  }
+
+  // Add product to collections
+  async addProductToCollections(productId, collectionIds) {
+    if (!collectionIds || collectionIds.length === 0) {
+      return;
+    }
+
+    for (const collectionId of collectionIds) {
+      try {
+        await this.shopify.collect.create({
+          product_id: productId,
+          collection_id: collectionId
+        });
+        console.log(`🔗 Added product ${productId} to collection ${collectionId}`);
+      } catch (error) {
+        console.error(`❌ Error adding product ${productId} to collection ${collectionId}:`, error.message);
+        // Continue with other collections even if one fails
+      }
     }
   }
 }
