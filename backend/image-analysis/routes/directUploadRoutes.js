@@ -35,7 +35,10 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
     }
 
     console.log('Processing direct upload:', req.file.originalname);
-    
+
+    // get userId TO-DO
+      const userId = req.userId ?? process.env.USER_ID ?? 'unknown'
+
     // Generate product ID
     const timestamp = Date.now();
     const productId = `prod_${timestamp}_direct`;
@@ -51,6 +54,7 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
     
     // Format for DynamoDB (no S3 URL needed)
     const dynamoDBData = DataFormatter.formatForDynamoDB(
+        userId,
       productId,
       null, // No image URL since we processed directly
       extractedData,
