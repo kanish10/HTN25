@@ -10,7 +10,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const multiImageRoutes = require('./routes/multiImageRoutes');
 const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
-const dynamoDBRoutes = require('./routes/dynamoDBRoutes');
+const mongoDBRoutes = require('./routes/mongoDBRoutes');
 const s3Routes = require('./routes/s3Routes');
 
 const app = express();
@@ -47,7 +47,7 @@ app.use('/api', uploadRoutes);
 app.use('/api', multiImageRoutes);
 app.use('/api', directUploadRoutes);
 app.use('/api', shopifyRoutes);
-app.use('/api/db', dynamoDBRoutes);
+app.use('/api/db', mongoDBRoutes);
 app.use('/api/s3', s3Routes);
 
 // Root endpoint
@@ -69,16 +69,7 @@ app.get('/', (req, res) => {
       listProducts: 'GET /api/db/products',
       getProduct: 'GET /api/db/products/:productId',
       updateProductStatus: 'PUT /api/db/products/:productId/status',
-      deleteFromDB: 'DELETE /api/db/products/:productId',
-      s3Upload: 'POST /api/s3/upload',
-      s3PresignedUrl: 'POST /api/s3/presigned-url',
-      s3PresignedReadUrl: 'POST /api/s3/presigned-read-url',
-      s3ListImages: 'GET /api/s3/images',
-      s3GetImage: 'GET /api/s3/images/:productId',
-      s3DeleteImage: 'DELETE /api/s3/images/:productId',
-      s3DeleteByKey: 'DELETE /api/s3/images/key/:s3Key',
-      s3CopyImage: 'POST /api/s3/images/copy',
-      s3Health: 'GET /api/s3/health'
+      deleteFromDB: 'DELETE /api/db/products/:productId'
     }
   });
 });
@@ -108,7 +99,7 @@ app.listen(PORT, () => {
   console.log(`📋 API docs: http://localhost:${PORT}/`);
   
   // Verify environment variables
-  const requiredEnvVars = ['GEMINI_API_KEY', 'AWS_ACCESS_KEY_ID', 'S3_BUCKET_NAME', 'SHOPIFY_SHOP_NAME', 'SHOPIFY_ACCESS_TOKEN'];
+  const requiredEnvVars = ['GEMINI_API_KEY', 'AWS_ACCESS_KEY_ID', 'S3_BUCKET_NAME', 'SHOPIFY_SHOP_NAME', 'SHOPIFY_ACCESS_TOKEN', 'MONGODB_URI'];
   const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
   
   if (missingVars.length > 0) {
