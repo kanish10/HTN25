@@ -11,14 +11,13 @@
   - Code degrades gracefully when MARTIAN_API_KEY is not set or lib is missing
 */
 
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const AWS = require('aws-sdk');
 
 class ShippingService {
   constructor(opts = {}) {
-  const region = process.env.AWS_REGION || opts.awsRegion || 'us-east-1';
-  const ddb = new DynamoDBClient({ region });
-  this.ddb = DynamoDBDocumentClient.from(ddb);
+    const region = process.env.AWS_REGION || opts.awsRegion || 'us-east-1';
+    AWS.config.update({ region });
+    this.ddb = new AWS.DynamoDB.DocumentClient();
     this.productsTable = process.env.SHOPBRAIN_DDB_TABLE || 'ShopBrainProducts';
     this.martianApiKey = process.env.MARTIAN_API_KEY || null;
   this.martian = this.createLlmRouter();
@@ -67,9 +66,9 @@ class ShippingService {
     for (const item of items) {
       const { productId, quantity = 1 } = item;
       try {
-        const result = await this.ddb.send(
-          new GetCommand({ TableName: this.productsTable, Key: { productId } })
-        );
+        const result = await this.ddb
+          .get({ TableName: this.productsTable, Key: { productId } })
+          .promise();
 
         const extracted = result?.Item?.extractedData;
         if (extracted?.dimensions && extracted?.estimatedWeight) {
