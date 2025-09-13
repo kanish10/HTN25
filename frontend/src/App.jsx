@@ -276,7 +276,7 @@ const Footer = () => (
     <Container className="footer-inner">
       <p>© {new Date().getFullYear()} ShopBrain. Built at Hack the North.</p>
       <p className="made-with">
-        <span className="chip">AI ✨</span>
+        {/* <span className="chip">AI ✨</span> */}
       </p>
     </Container>
   </footer>
