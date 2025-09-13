@@ -1,9 +1,28 @@
 const express = require('express');
+const ShippingService = require('../services/shippingService');
 const ShippingOptimizationService = require('../services/shippingOptimizationService');
-const router = express.Router();
 
-// Initialize shipping optimization service
-const shippingService = new ShippingOptimizationService();
+const router = express.Router();
+const shippingService = new ShippingService();
+
+// POST /api/shipping/calculate
+router.post('/shipping/calculate', async (req, res) => {
+  try {
+    const { items = [], destination = {} } = req.body || {};
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: 'items is required and must be non-empty array' });
+    }
+
+    const result = await shippingService.calculate(items, destination);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Shipping calculate error:', error);
+    res.status(500).json({ success: false, error: 'Failed to calculate shipping', message: error.message });
+  }
+});
+
+// POST /api/shopify/shipping-rates (Carrier Service)
+// Note: Shopify carrier service endpoint is provided in shopifyCarrierRoutes.js
 
 // In-memory storage for processed products (in production, use database)
 const productDatabase = new Map();
@@ -51,53 +70,7 @@ router.post('/shipping/store-product', async (req, res) => {
  * Calculate optimal shipping for multiple items
  * Main endpoint for multi-item shipping optimization
  */
-router.post('/shipping/calculate', async (req, res) => {
-  try {
-    const { items, destination = {} } = req.body;
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Items array is required and must not be empty'
-      });
-    }
-
-    console.log(`🚛 Calculating shipping for ${items.length} item types`);
-
-    // Fetch product dimensions from stored data
-    const productDimensions = await fetchProductDimensions(items);
-
-    if (productDimensions.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No valid product data found for the provided items'
-      });
-    }
-
-    // Calculate optimal packing
-    const packingResult = await shippingService.calculateOptimalPacking(
-      productDimensions,
-      destination
-    );
-
-    console.log(`✅ Shipping calculated: ${packingResult.boxes.length} boxes, $${packingResult.totalCost}`);
-
-    res.json({
-      success: true,
-      ...packingResult,
-      calculatedAt: new Date().toISOString(),
-      destinationInfo: destination
-    });
-
-  } catch (error) {
-    console.error('❌ Shipping calculation error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to calculate shipping',
-      message: error.message
-    });
-  }
-});
+// (Duplicate /shipping/calculate route removed; use the one defined at the top of this file.)
 
 /**
  * Get available shipping boxes
@@ -164,7 +137,9 @@ router.post('/shipping/test', async (req, res) => {
       }
     ];
 
-    const packingResult = await shippingService.calculateOptimalPacking(
+    // Use optimization service directly for test scenarios with inline dimensions
+    const optimizer = new ShippingOptimizationService();
+    const packingResult = await optimizer.calculateOptimalPacking(
       sampleItems,
       { country: 'US', postal_code: '10001', province: 'NY' }
     );
@@ -202,8 +177,9 @@ router.post('/shipping/compare', async (req, res) => {
 
     const productDimensions = await fetchProductDimensions(items);
 
-    // Get optimized solution
-    const optimized = await shippingService.calculateOptimalPacking(productDimensions, destination);
+  // Get optimized solution using the optimization service (works with inline dimensions)
+  const optimizer = new ShippingOptimizationService();
+  const optimized = await optimizer.calculateOptimalPacking(productDimensions, destination);
 
     // Calculate standard shipping (one large box per item)
     const standardCost = productDimensions.length * 9.00;

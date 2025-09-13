@@ -82,7 +82,7 @@ class ShopifyService {
             type: 'json'
           },
           {
-            namespace: 'shopbrain',
+            namespace: 'shopbrain', 
             key: 'ab_variants',
             value: JSON.stringify(generatedContent.abVariants),
             type: 'json'

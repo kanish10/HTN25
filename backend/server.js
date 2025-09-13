@@ -6,9 +6,14 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // Now import routes (after env vars are loaded)
-const uploadRoutes = require('./routes/uploadRoutes');
+// Optional legacy upload routes (may not exist in this workspace)
+let uploadRoutes;
+try { uploadRoutes = require('./routes/uploadRoutes'); } catch { uploadRoutes = express.Router(); }
 const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
+let s3Routes; try { s3Routes = require('./routes/s3Routes'); } catch { s3Routes = express.Router(); }
+const shippingRoutes = require('./routes/shippingRoutes');
+const shopifyCarrierRoutes = require('./routes/shopifyCarrierRoutes');
 const mongoDBRoutes = require('./routes/mongoDBRoutes');
 const s3Routes = require('./routes/s3Routes');
 
@@ -45,8 +50,10 @@ app.get('/health', (req, res) => {
 app.use('/api', uploadRoutes);
 app.use('/api', directUploadRoutes);
 app.use('/api', shopifyRoutes);
-app.use('/api/db', mongoDBRoutes);
+app.use('/api', shopifyCarrierRoutes);
+app.use('/api', shippingRoutes);
 app.use('/api/s3', s3Routes);
+app.use('/api/db', mongoDBRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -61,7 +68,10 @@ app.get('/', (req, res) => {
       status: 'GET /api/status/:productId',
       shopifyTest: 'GET /api/shopify/test',
       publish: 'POST /api/publish/:productId',
-      shopifyProduct: 'GET /api/shopify/product/:productId',
+  shippingCalculate: 'POST /api/shipping/calculate',
+  shopifyCarrierRates: 'POST /api/shopify/shipping-rates',
+  shopifyCarrierRates: 'POST /api/shopify/shipping-rates',
+  shopifyProduct: 'GET /api/shopify/product/:productId',
       updateStatus: 'PATCH /api/shopify/product/:productId/status',
       deleteProduct: 'DELETE /api/shopify/product/:productId',
       listProducts: 'GET /api/db/products',
