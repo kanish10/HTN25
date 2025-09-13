@@ -21,6 +21,7 @@ class ShippingService {
   this.ddb = DynamoDBDocumentClient.from(ddb);
     this.productsTable = process.env.SHOPBRAIN_DDB_TABLE || 'ShopBrainProducts';
     this.martianApiKey = process.env.MARTIAN_API_KEY || null;
+  this.martianApiBaseUrl = process.env.MARTIAN_API_BASE_URL || 'https://api.withmartian.com';
   this.martian = this.createLlmRouter();
   }
 
@@ -201,7 +202,8 @@ class ShippingService {
   createLlmRouter() {
     if (!this.martianApiKey) return null;
     try {
-      const MartianRouter = require('./martianRouter');
+      // Router lives under routes to share with other modules
+      const MartianRouter = require('../routes/martianRouter');
       return new MartianRouter({ baseURL: this.martianApiBaseUrl, apiKey: this.martianApiKey });
     } catch (e) {
       console.warn('Martian router unavailable. Proceeding without LLM enhancement.');

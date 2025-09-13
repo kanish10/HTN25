@@ -11,10 +11,10 @@ let uploadRoutes;
 try { uploadRoutes = require('./routes/uploadRoutes'); } catch { uploadRoutes = express.Router(); }
 const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
-let dynamoDBRoutes; try { dynamoDBRoutes = require('./routes/dynamoDBRoutes'); } catch { dynamoDBRoutes = express.Router(); }
 let s3Routes; try { s3Routes = require('./routes/s3Routes'); } catch { s3Routes = express.Router(); }
 const shippingRoutes = require('./routes/shippingRoutes');
 const shopifyCarrierRoutes = require('./routes/shopifyCarrierRoutes');
+const dynamoDBRoutes = require('./routes/dynamoDBRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -76,16 +76,7 @@ app.get('/', (req, res) => {
       listProducts: 'GET /api/db/products',
       getProduct: 'GET /api/db/products/:productId',
       updateProductStatus: 'PUT /api/db/products/:productId/status',
-      deleteFromDB: 'DELETE /api/db/products/:productId',
-      s3Upload: 'POST /api/s3/upload',
-      s3PresignedUrl: 'POST /api/s3/presigned-url',
-      s3PresignedReadUrl: 'POST /api/s3/presigned-read-url',
-      s3ListImages: 'GET /api/s3/images',
-      s3GetImage: 'GET /api/s3/images/:productId',
-      s3DeleteImage: 'DELETE /api/s3/images/:productId',
-      s3DeleteByKey: 'DELETE /api/s3/images/key/:s3Key',
-      s3CopyImage: 'POST /api/s3/images/copy',
-      s3Health: 'GET /api/s3/health'
+      deleteFromDB: 'DELETE /api/db/products/:productId'
     }
   });
 });
