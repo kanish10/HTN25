@@ -2,14 +2,14 @@ const express = require('express');
 const S3Service = require('../services/s3Service');
 const GeminiService = require('../services/geminiService');
 const DataFormatter = require('../utils/dataFormatter');
-const DynamoDBService = require('../services/dynamoDBService');
+const MongoDBService = require('../services/mongoDBService');
 
 const router = express.Router();
 
 // Initialize services
 const s3Service = new S3Service();
 const geminiService = new GeminiService();
-const dynamoDBService = new DynamoDBService();
+const mongoDBService = new MongoDBService();
 
 // POST /upload-more - Handle multiple image analysis and store only the best one
 router.post('/upload-more', async (req, res) => {
@@ -119,8 +119,8 @@ router.post('/upload-more', async (req, res) => {
     // Generate additional content for the best image
     const generatedContent = await geminiService.generateProductContent(bestImage.extractedData);
 
-    // Format data for DynamoDB
-    const dynamoDBData = DataFormatter.formatForDynamoDB(
+    // Format data for MongoDB
+    const mongoDBData = DataFormatter.formatForDynamoDB(
       productId,
       imageUrl,
       bestImage.extractedData,
@@ -137,16 +137,16 @@ router.post('/upload-more', async (req, res) => {
       }
     );
 
-    // Upload to DynamoDB
+    // Upload to MongoDB
     try {
-      await dynamoDBService.uploadProduct(dynamoDBData);
-      console.log(`✅ Product ${productId} successfully saved to DynamoDB`);
+      await mongoDBService.uploadProduct(mongoDBData);
+      console.log(`✅ Product ${productId} successfully saved to MongoDB`);
     } catch (dbError) {
-      console.error('❌ DynamoDB upload failed:', dbError.message);
+      console.error('❌ MongoDB upload failed:', dbError.message);
     }
 
     // Return response
-    const response = DataFormatter.createAnalysisResponse(dynamoDBData, {
+    const response = DataFormatter.createAnalysisResponse(mongoDBData, {
       selectedImageUrl: imageUrl,
       selectedIndex: bestImage.index,
       extractedData: bestImage.extractedData,
