@@ -9,8 +9,8 @@ dotenv.config();
 const uploadRoutes = require('./routes/uploadRoutes');
 const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
-const shippingRoutes = require('./routes/shippingRoutes');
-const shopifyCarrierRoutes = require('./routes/shopifyCarrierRoutes');
+const dynamoDBRoutes = require('./routes/dynamoDBRoutes');
+const s3Routes = require('./routes/s3Routes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -45,8 +45,8 @@ app.get('/health', (req, res) => {
 app.use('/api', uploadRoutes);
 app.use('/api', directUploadRoutes);
 app.use('/api', shopifyRoutes);
-app.use('/api', shippingRoutes);
-app.use('/api', shopifyCarrierRoutes);
+app.use('/api/db', dynamoDBRoutes);
+app.use('/api/s3', s3Routes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -64,16 +64,19 @@ app.get('/', (req, res) => {
       shopifyProduct: 'GET /api/shopify/product/:productId',
       updateStatus: 'PATCH /api/shopify/product/:productId/status',
       deleteProduct: 'DELETE /api/shopify/product/:productId',
-      shippingCalculate: 'POST /api/shipping/calculate',
-      shippingTest: 'POST /api/shipping/test',
-      shippingCompare: 'POST /api/shipping/compare',
-      shippingBoxes: 'GET /api/shipping/boxes',
-      shippingProducts: 'GET /api/shipping/products',
-      carrierServiceWebhook: 'POST /api/shopify/shipping-rates',
-      setupCarrierService: 'POST /api/shopify/setup-carrier-service',
-      listCarrierServices: 'GET /api/shopify/carrier-services',
-      previewRates: 'POST /api/shopify/preview-rates',
-      linkedProducts: 'GET /api/shopify/linked-products'
+      listProducts: 'GET /api/db/products',
+      getProduct: 'GET /api/db/products/:productId',
+      updateProductStatus: 'PUT /api/db/products/:productId/status',
+      deleteFromDB: 'DELETE /api/db/products/:productId',
+      s3Upload: 'POST /api/s3/upload',
+      s3PresignedUrl: 'POST /api/s3/presigned-url',
+      s3PresignedReadUrl: 'POST /api/s3/presigned-read-url',
+      s3ListImages: 'GET /api/s3/images',
+      s3GetImage: 'GET /api/s3/images/:productId',
+      s3DeleteImage: 'DELETE /api/s3/images/:productId',
+      s3DeleteByKey: 'DELETE /api/s3/images/key/:s3Key',
+      s3CopyImage: 'POST /api/s3/images/copy',
+      s3Health: 'GET /api/s3/health'
     }
   });
 });
