@@ -24,16 +24,20 @@ class S3Service {
         return `prod_${timestamp}_${uuid}`;
     }
 
-    /**
-     * Generate S3 key for a product image
-     * @param {string} productId - The product ID
-     * @param {string} fileName - Original file name
-     * @returns {string} - S3 key
-     */
-    generateS3Key(productId, fileName) {
-        const fileExtension = fileName.split('.').pop();
-        return `products/${productId}.${fileExtension}`;
+  /**
+   * Generate S3 key for a product image
+   * @param {string} productId - The product ID
+   * @param {string} fileName - Original file name
+   * @param {number} index - Optional index for multiple images
+   * @returns {string} - S3 key
+   */
+  generateS3Key(productId, fileName, index = null) {
+    const fileExtension = fileName.split('.').pop();
+    if (index !== null && index > 0) {
+      return `products/${productId}_${index}.${fileExtension}`;
     }
+    return `products/${productId}.${fileExtension}`;
+  }
 
     /**
      * Generate public URL for an S3 object
@@ -162,12 +166,82 @@ class S3Service {
         }
     }
 
-    /**
-     * Get image metadata from S3
-     * @param {string} productId - The product ID
-     * @returns {Promise<Object>} - Image metadata
-     */
-    async getImageMetadata(productId) {
+  /**
+   * Get presigned URL for a specific S3 key
+   * @param {string} s3Key - The specific S3 key to upload to
+   * @param {string} fileType - MIME type
+   * @returns {Promise<Object>} - Presigned URL and metadata
+   */
+  async getPresignedUploadUrlWithKey(s3Key, fileType) {
+    try {
+      const params = {
+        Bucket: this.bucketName,
+        Key: s3Key,
+        Expires: 300, // 5 minutes
+        ContentType: fileType
+      };
+
+      const uploadUrl = await this.s3.getSignedUrlPromise('putObject', params);
+      const imageUrl = this.generatePublicUrl(s3Key);
+
+      console.log(`Generated presigned URL for key ${s3Key}`);
+
+      return {
+        success: true,
+        uploadUrl,
+        imageUrl,
+        s3Key,
+        expiresIn: 300
+      };
+
+    } catch (error) {
+      console.error('Error generating presigned URL with key:', error);
+      throw new Error(`Failed to generate upload URL: ${error.message}`);
+    }
+  }
+
+  /**
+   * List all images for a specific product
+   * @param {string} productId - The product ID
+   * @returns {Promise<Array>} - Array of image objects
+   */
+  async listProductImages(productId) {
+    try {
+      const listParams = {
+        Bucket: this.bucketName,
+        Prefix: `products/${productId}`
+      };
+
+      const listResult = await this.s3.listObjectsV2(listParams).promise();
+
+      if (!listResult.Contents || listResult.Contents.length === 0) {
+        return [];
+      }
+
+      const images = listResult.Contents.map((object, index) => {
+        return {
+          index: index,
+          s3Key: object.Key,
+          imageUrl: this.generatePublicUrl(object.Key),
+          size: object.Size,
+          lastModified: object.LastModified
+        };
+      });
+
+      return images;
+
+    } catch (error) {
+      console.error('Error listing product images:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get image metadata from S3
+   * @param {string} productId - The product ID
+   * @returns {Promise<Object>} - Image metadata
+   */
+  async getImageMetadata(productId) {
         try {
             // Find the image by scanning for objects with the product ID prefix
             const listParams = {

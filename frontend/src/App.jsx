@@ -54,7 +54,8 @@ const AnalysisResults = ({ result, processingTime }) => {
       const response = await axios.post(`${API_URL}/api/publish/${result.productId || 'temp-id'}`, {
         extractedData: result.extractedData,
         generatedContent: result.generatedContent,
-        shippingData: result.shippingData
+        shippingData: result.shippingData,
+        imageUrl: result.imageUrl
       });
 
       if (response.data.success) {
@@ -139,6 +140,30 @@ const AnalysisResults = ({ result, processingTime }) => {
           <div style={{ minHeight: '200px' }}>
             {activeTab === "overview" && (
               <div style={{ display: 'grid', gap: '12px' }}>
+                {result.imageUrl && (
+                  <div className="card" style={{ padding: '12px' }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Selected Product Image</h4>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                      <img
+                        src={result.imageUrl}
+                        alt="Selected product"
+                        style={{
+                          maxWidth: '300px',
+                          maxHeight: '300px',
+                          objectFit: 'contain',
+                          borderRadius: '8px',
+                          border: '2px solid var(--brand)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        }}
+                      />
+                    </div>
+                    {result.imageAnalysis?.selectedImage && (
+                      <div style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280' }}>
+                        🏆 Best image selected (#{result.imageAnalysis.selectedImage.index + 1} of {result.imageAnalysis.totalImagesAnalyzed})
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="card" style={{ padding: '12px' }}>
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Product Details</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '14px' }}>
@@ -446,57 +471,162 @@ const HomePage = ({ onStart }) => (
 // Upload page: keep your look; when analysis finishes, we save to dashboard
 const UploadPage = () => {
   const inputRef = useRef(null);
+  const multiInputRef = useRef(null);
   const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]); // For multiple images
+  const [uploadMode, setUploadMode] = useState("single"); // single | multiple
   const [status, setStatus] = useState("idle"); // idle | uploading | processing | ready | error
   const [preview, setPreview] = useState(null);
+  const [previews, setPreviews] = useState([]); // For multiple previews
   const [analysisResult, setAnalysisResult] = useState(null);
   const [error, setError] = useState(null);
   const [processingTime, setProcessingTime] = useState(0);
 
-  const handleChoose = () => inputRef.current?.click();
+  const handleChoose = () => {
+    if (uploadMode === "single") {
+      inputRef.current?.click();
+    } else {
+      multiInputRef.current?.click();
+    }
+  };
+
   const onFile = (f) => {
     if (!f) return;
     setFile(f);
     setPreview(URL.createObjectURL(f));
     setError(null);
     setAnalysisResult(null);
+    setUploadMode("single");
+  };
+
+  const onMultipleFiles = (fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    const filesArray = Array.from(fileList);
+    if (filesArray.length > 5) {
+      setError("Maximum 5 images allowed");
+      return;
+    }
+
+    setFiles(filesArray);
+    setPreviews(filesArray.map(f => URL.createObjectURL(f)));
+    setError(null);
+    setAnalysisResult(null);
+    setUploadMode("multiple");
+    setFile(null);
+    setPreview(null);
+  };
+
+  const switchToMultiple = () => {
+    setUploadMode("multiple");
+    setFile(null);
+    setPreview(null);
+    setError(null);
+    setAnalysisResult(null);
+  };
+
+  const switchToSingle = () => {
+    setUploadMode("single");
+    setFiles([]);
+    setPreviews([]);
+    setError(null);
+    setAnalysisResult(null);
+  };
+
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result.split(',')[1]); // Remove data:image/jpeg;base64, prefix
+      reader.onerror = reject;
+    });
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (uploadMode === "single" && !file) return;
+    if (uploadMode === "multiple" && files.length === 0) return;
+
     const startTime = Date.now();
     setStatus("uploading");
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('image', file);
+      if (uploadMode === "single") {
+        // Original single image upload flow
+        const formData = new FormData();
+        formData.append('image', file);
 
-      setStatus("processing");
+        setStatus("processing");
 
-      // Call your analysis server (keep your existing API_URL)
-      const response = await axios.post(`${API_URL}/api/direct-upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000
-      });
-
-      const ms = Date.now() - startTime;
-      setProcessingTime(ms);
-
-      if (response.data.success) {
-        const payload = response.data.data;
-        setAnalysisResult(payload);
-        setStatus("ready");
-
-        // ---- save to local history for dashboard
-        addUpload({
-          previewUrl: preview,
-          title: payload.generatedContent?.title || "Untitled product",
-          box: payload.shippingData?.singleItem?.recommendedBox || "—",
-          createdAt: Date.now(),
-          shopifyHandle: null // set after publish
+        const response = await axios.post(`${API_URL}/api/direct-upload`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000
         });
+
+        const ms = Date.now() - startTime;
+        setProcessingTime(ms);
+
+        if (response.data.success) {
+          const payload = response.data.data;
+          setAnalysisResult(payload);
+          setStatus("ready");
+
+          addUpload({
+            previewUrl: preview,
+            title: payload.generatedContent?.title || "Untitled product",
+            box: payload.shippingData?.singleItem?.recommendedBox || "—",
+            createdAt: Date.now(),
+            shopifyHandle: null
+          });
+        } else {
+          throw new Error(response.data.details || 'Analysis failed');
+        }
       } else {
-        throw new Error(response.data.details || 'Analysis failed');
+        // New multiple image upload flow
+        setStatus("processing");
+
+        const images = await Promise.all(
+          files.map(async (file) => ({
+            fileName: file.name,
+            fileType: file.type,
+            imageData: await fileToBase64(file)
+          }))
+        );
+
+        const response = await axios.post(`${API_URL}/api/upload-more`, {
+          images
+        }, { timeout: 120000 }); // Longer timeout for multiple images
+
+        const ms = Date.now() - startTime;
+        setProcessingTime(ms);
+
+        if (response.data.success) {
+          const payload = response.data.data;
+          setAnalysisResult({
+            ...payload,
+            multiImageAnalysis: response.data.data.imageAnalysis
+          });
+          setStatus("ready");
+
+          // Use the actual selected image URL from the server response
+          const selectedImageUrl = payload.imageUrl || payload.imageAnalysis?.selectedImage?.url;
+          const selectedImageIndex = payload.imageAnalysis?.selectedImage?.index || 0;
+
+          // Use server image URL when available
+          const imageToDisplay = selectedImageUrl || (previews[selectedImageIndex] || previews[0]);
+
+          addUpload({
+            previewUrl: imageToDisplay,
+            title: payload.generatedContent?.title || "Untitled product",
+            box: payload.shippingData?.singleItem?.recommendedBox || "—",
+            createdAt: Date.now(),
+            shopifyHandle: null,
+            multiImage: true,
+            totalImages: files.length,
+            selectedImageIndex,
+            selectedImageUrl
+          });
+        } else {
+          throw new Error(response.data.details || 'Analysis failed');
+        }
       }
     } catch (err) {
       console.error('Upload/Analysis Error:', err);
@@ -514,21 +644,85 @@ const UploadPage = () => {
     <Container className="upload">
       <div className="cols">
         <div className="card">
-          <p className="label">1) Upload product image</p>
-          <div className="dropzone">
-            {preview ? <img src={preview} alt="preview" className="preview" /> : (
-              <div className="dz-empty">
-                <Upload size={28} />
-                <p className="muted">Drag & drop or choose a JPG/PNG (under 5MB)</p>
-              </div>
-            )}
-            <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-            <div className="row gap">
-              <button className="btn" onClick={handleChoose}>Choose file</button>
-              <button className="btn primary" disabled={!file || status === "uploading" || status === "processing"} onClick={handleUpload}>
-                {status === "processing" ? "Analyzing..." : "Analyze with AI"}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <p className="label">1) Upload product image(s)</p>
+            <div className="row gap" style={{ fontSize: '12px' }}>
+              <button
+                className={`btn ${uploadMode === "single" ? "primary" : ""}`}
+                onClick={switchToSingle}
+                style={{ padding: '4px 8px' }}
+              >
+                Single Image
+              </button>
+              <button
+                className={`btn ${uploadMode === "multiple" ? "primary" : ""}`}
+                onClick={switchToMultiple}
+                style={{ padding: '4px 8px' }}
+              >
+                Multiple Images
               </button>
             </div>
+          </div>
+
+          <div className="dropzone">
+            {uploadMode === "single" ? (
+              // Single image UI
+              <>
+                {preview ? <img src={preview} alt="preview" className="preview" /> : (
+                  <div className="dz-empty">
+                    <Upload size={28} />
+                    <p className="muted">Drag & drop or choose a JPG/PNG (under 5MB)</p>
+                  </div>
+                )}
+                <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+              </>
+            ) : (
+              // Multiple images UI
+              <>
+                {previews.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+                    {previews.map((preview, index) => (
+                      <div key={index} style={{ position: 'relative' }}>
+                        <img src={preview} alt={`preview ${index + 1}`} style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px' }} />
+                        <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', borderRadius: '12px', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
+                          {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="dz-empty">
+                    <Upload size={28} />
+                    <p className="muted">Choose 2-5 images • AI will pick the best one</p>
+                  </div>
+                )}
+                <input ref={multiInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onMultipleFiles(e.target.files)} />
+              </>
+            )}
+
+            <div className="row gap">
+              <button className="btn" onClick={handleChoose}>
+                {uploadMode === "single" ? "Choose file" : `Choose images ${files.length > 0 ? `(${files.length})` : ""}`}
+              </button>
+              <button
+                className="btn primary"
+                disabled={
+                  (uploadMode === "single" && !file) ||
+                  (uploadMode === "multiple" && files.length === 0) ||
+                  status === "uploading" ||
+                  status === "processing"
+                }
+                onClick={handleUpload}
+              >
+                {status === "processing" ? "Analyzing..." : uploadMode === "multiple" ? "Analyze & Pick Best" : "Analyze with AI"}
+              </button>
+            </div>
+
+            {uploadMode === "multiple" && files.length > 0 && (
+              <p className="muted" style={{ marginTop: '8px', fontSize: '12px' }}>
+                🤖 AI will analyze all {files.length} images and automatically select the best one for your listing
+              </p>
+            )}
           </div>
         </div>
 
@@ -536,8 +730,8 @@ const UploadPage = () => {
           <p className="label">2) Status</p>
           <ol className="status">
             {[
-              { key: "uploading", label: "Processing image..." },
-              { key: "processing", label: "🧠 Gemini Vision analyzing product" },
+              { key: "uploading", label: uploadMode === "multiple" ? "Processing images..." : "Processing image..." },
+              { key: "processing", label: uploadMode === "multiple" ? "🧠 Gemini analyzing & selecting best image" : "🧠 Gemini Vision analyzing product" },
               { key: "ready", label: "Analysis complete!" },
             ].map(({ key, label }) => (
               <li key={key} className={`status-row ${status === key ? "active" : status === "idle" || status === "error" ? "" : "dim"}`}>
