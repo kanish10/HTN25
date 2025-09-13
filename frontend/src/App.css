@@ -252,3 +252,55 @@ html,body,.app{
 .nav .nav-links { display: flex; align-items: center; gap: 8px; }
 .nav .nav-links .link, .nav .nav-links a { padding: 8px 10px; border-radius: 10px; }
 .nav .nav-links .active { background: #F5F7F9; }
+
+/* ===== Consistent spacing + layout overrides (Home) ===== */
+
+/* Use a simple rhythm scale */
+:root{
+  --space-1: 8px;
+  --space-2: 12px;
+  --space-3: 16px;
+  --space-4: 20px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 56px;
+  --space-9: 72px;
+}
+
+/* Make sure all form controls & buttons inherit the same font */
+button, input, textarea, select { font-family: inherit; }
+
+/* Hero gets comfortable bottom padding so the next section never touches it */
+.hero { padding: var(--space-8) 0 var(--space-7); }
+
+/* “How it works” needs top AND bottom padding + a divider line */
+.how {
+  padding: var(--space-8) 0 var(--space-9);
+  border-top: 1px solid #EEF2F5;
+}
+
+/* Section titles share the same bottom margin */
+.section-title { margin: 0 0 var(--space-3) 0; line-height: 1.2; }
+
+/* Force steps to be one per row (looks cleaner for the demo) */
+.how .cols {
+  display: grid;
+  grid-template-columns: 1fr !important;   /* <-- 1 per row on all widths */
+  gap: var(--space-3);
+  align-items: stretch;
+}
+
+/* Ensure each step card matches height and has consistent interior spacing */
+.how .card { height: 100%; padding: var(--space-4); }
+
+/* Give a bit more breathing room to the step number */
+.step { margin-bottom: var(--space-2); }
+
+/* Navbar small alignment tidy (baseline + hover feedback) */
+.nav .nav-inner { display:flex; align-items:center; justify-content:space-between; height:64px; }
+.nav .nav-links { display:flex; align-items:center; gap: var(--space-2); }
+.nav .nav-links .link, .nav .nav-links a { padding: var(--space-1) var(--space-2); border-radius: 10px; }
+.nav .nav-links .active { background: #F5F7F9; }
+
+.how .cols { grid-template-columns: repeat(3, 1fr) !important; }
