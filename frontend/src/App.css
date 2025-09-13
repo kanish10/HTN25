@@ -86,3 +86,134 @@ body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetic
 .result-title{font-weight:600}
 .bullets{margin:10px 0 0 18px;color:var(--text);font-size:14px}
 
+/* --- demo auth & dashboard helpers --- */
+.text-input{
+  width:100%;
+  max-width:520px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  font-size:14px;
+  outline:none;
+  background:#fff;
+}
+.text-input:focus{
+  border-color:#cfd6dd;
+  box-shadow:0 0 0 3px rgba(17,17,17,0.06);
+}
+
+.kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+@media(max-width:900px){.kpis{grid-template-columns:1fr}}
+.kpi{padding:12px}
+.kpi .big{font-size:22px;font-weight:700}
+.kpi .sub{font-size:12px;color:var(--text-weak)}
+.upload .list-grid{display:grid;grid-template-columns:1fr;gap:10px}
+
+/* ====== Forms: make inputs look like the rest of the UI ====== */
+
+/* High-specificity so it wins over any reset */
+.upload .dropzone .text-input,
+.upload .dropzone input[type="text"],
+.upload .dropzone input[type="email"],
+.upload .dropzone input[type="url"],
+.upload .dropzone input[type="password"],
+.upload .dropzone input[type="search"],
+.upload .dropzone textarea,
+.text-input {
+  width: 100%;
+  max-width: 520px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;             /* <-- the round corners */
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  -webkit-appearance: none;        /* fix Safari/Chrome square corners */
+  appearance: none;
+  transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+
+.text-input:focus,
+.upload .dropzone input:focus,
+.upload .dropzone textarea:focus {
+  border-color: #cfd6dd;
+  box-shadow: 0 0 0 3px rgba(0,128,96,0.08); /* soft brand glow */
+}
+
+/* Keep textarea height comfy */
+.upload .dropzone textarea { min-height: 96px; resize: vertical; }
+
+/* Make the dotted login box match your cards */
+.dropzone {
+  border-radius: 14px;             /* <-- rounded dashed container */
+}
+
+/* Optional: nicer spacing inside the login form */
+.dropzone .text-input + .text-input { margin-top: 8px; }
+
+/* Optional: fix autofill yellow and keep corners on Chrome/Brave */
+input:-webkit-autofill,
+textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 30px #fff inset !important;
+  -webkit-text-fill-color: inherit !important;
+  border-radius: 12px !important;
+}
+
+/* ---------- Global polish (Shopify-like system stack) ---------- */
+:root{
+  --brand:#0E9F6E;            /* keep your var if already set */
+  --text:#111827;
+  --text-weak:#6b7280;
+  --border:#E5E7EB;
+  --chip:#F3F4F6;
+}
+html,body,.app{
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
+  color: var(--text);
+}
+
+/* ---------- Buttons (consistent size & rounding) ---------- */
+.btn, .btn.primary, .btn.ghost {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+.btn.primary{
+  background:#111; color:#fff; border:1px solid #111;
+}
+.btn.primary:hover{ filter: brightness(0.94); }
+.btn{ background:#fff; border:1px solid var(--border); }
+.btn:hover{ background:#fafafa; }
+.btn.ghost{ background:#fff; border:1px dashed var(--border); }
+
+/* ---------- Inputs (rounded + focus) ---------- */
+.upload .dropzone .text-input,
+.upload .dropzone input[type="text"],
+.upload .dropzone input[type="email"],
+.upload .dropzone input[type="url"],
+.upload .dropzone input[type="password"],
+.upload .dropzone input[type="search"],
+.upload .dropzone textarea,
+.text-input{
+  width:100%; max-width:520px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:12px;              /* <-- round corners */
+  background:#fff;
+  font-size:14px; line-height:1.4;
+  outline:none; appearance:none; -webkit-appearance:none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.text-input:focus,
+.upload .dropzone input:focus,
+.upload .dropzone textarea:focus{
+  border-color:#cfd6dd;
+  box-shadow:0 0 0 3px rgba(14,159,110,.12);
+}
+.upload .dropzone te
