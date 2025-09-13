@@ -160,11 +160,11 @@ class S3Service {
                 expiresIn: 300
             };
 
-    } catch (error) {
-      console.error('Error generating presigned URL:', error);
-      throw new Error(`Failed to generate upload URL: ${error.message}`);
+        } catch (error) {
+            console.error('Error generating presigned URL:', error);
+            throw new Error(`Failed to generate upload URL: ${error.message}`);
+        }
     }
-  }
 
   /**
    * Get presigned URL for a specific S3 key
@@ -236,12 +236,12 @@ class S3Service {
     }
   }
 
-    /**
-     * Get image metadata from S3
-     * @param {string} productId - The product ID
-     * @returns {Promise<Object>} - Image metadata
-     */
-    async getImageMetadata(productId) {
+  /**
+   * Get image metadata from S3
+   * @param {string} productId - The product ID
+   * @returns {Promise<Object>} - Image metadata
+   */
+  async getImageMetadata(productId) {
         try {
             // Find the image by scanning for objects with the product ID prefix
             const listParams = {

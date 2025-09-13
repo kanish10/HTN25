@@ -94,8 +94,8 @@ router.post('/analyze/:productId', async (req, res) => {
       bestAnalysis = await geminiService.analyzeMultipleImages(imageUrls);
     }
 
-    // Step 3: Format data for DynamoDB
-    const dynamoDBData = DataFormatter.formatForDynamoDB(
+    // Step 3: Format data for MongoDB
+    const mongoDBData = DataFormatter.formatForDynamoDB(
       productId,
       bestAnalysis.selectedImageUrl,
       bestAnalysis.extractedData,
@@ -106,10 +106,10 @@ router.post('/analyze/:productId', async (req, res) => {
         allImageUrls: imageUrls
       }
     );
-
+    
     console.log(`Analysis completed successfully. Best image: ${bestAnalysis.selectedIndex + 1}/${imageUrls.length}`);
-
-    // Upload to DynamoDB
+    
+    // Upload to MongoDB
     try {
       await mongoDBService.uploadProduct(mongoDBData);
       console.log(`Product ${productId} successfully uploaded to MongoDB`);
@@ -119,7 +119,7 @@ router.post('/analyze/:productId', async (req, res) => {
     }
 
     // Return formatted response
-    const response = DataFormatter.createAnalysisResponse(dynamoDBData, bestAnalysis);
+    const response = DataFormatter.createAnalysisResponse(mongoDBData, bestAnalysis);
     res.json(response);
 
   } catch (error) {
