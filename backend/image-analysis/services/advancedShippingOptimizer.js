@@ -38,28 +38,28 @@ class AdvancedShippingOptimizer {
         name: 'Large Envelope'
       },
       {
-        id: 'small',
+        id: 'small-box',
         cost: 4.50,
         innerDims: { length: 10, width: 7, height: 4 },
         maxWeight: 3,
         name: 'Small Box'
       },
       {
-        id: 'medium',
+        id: 'medium-box',
         cost: 6.50,
         innerDims: { length: 14, width: 10, height: 6 },
         maxWeight: 10,
         name: 'Medium Box'
       },
       {
-        id: 'large',
+        id: 'large-box',
         cost: 9.00,
         innerDims: { length: 18, width: 14, height: 8 },
         maxWeight: 20,
         name: 'Large Box'
       },
       {
-        id: 'xlarge',
+        id: 'xl-box',
         cost: 14.00,
         innerDims: { length: 24, width: 18, height: 12 },
         maxWeight: 40,
@@ -178,6 +178,10 @@ class AdvancedShippingOptimizer {
       totalBoxes: result.summary.totalBoxes,
       totalWeight: result.summary.totalActualWeight,
       chargeableWeight: result.summary.totalChargeableWeight,
+
+      // Keep the original shipments array for carrier service compatibility
+      shipments: result.shipments,
+      summary: result.summary,
 
       // Enhanced box details with 3D positioning
       boxes: result.shipments.map((shipment, index) => ({
@@ -511,11 +515,11 @@ class AdvancedShippingOptimizer {
         voidRatio: 1 - (totalVolume / (bestBox.innerDims.length * bestBox.innerDims.width * bestBox.innerDims.height)),
         packedWeight: totalWeight,
         dimChargeableWeight: Math.max(totalWeight, (bestBox.innerDims.length * bestBox.innerDims.width * bestBox.innerDims.height) / 139),
-        items: geminiItems.map(item => ({
-          id: item.suggestedName,
+        items: geminiItems.map((item, idx) => ({
+          id: `${item.suggestedName}_${idx}`,
           name: item.suggestedName,
-          position: { x: 0, y: 0, z: 0 },
-          dimensions: item.dimensions,
+          pos: { x: 0, y: 0, z: 0 },
+          dims: item.dimensions,
           placement: 'simple_calculation'
         }))
       }]
