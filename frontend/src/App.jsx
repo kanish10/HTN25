@@ -1,9 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Upload, Wand2, Box, Zap, CheckCircle, ExternalLink,
   AlertCircle, ChevronDown, ChevronUp, Package, Tag, DollarSign, Truck,
-  LogIn, LogOut, User, Calculator
+  LogIn, LogOut, User, Calculator, X, Eye, Monitor, Maximize2
 } from "lucide-react";
 import axios from "axios";
 import ShippingCalculator from "./ShippingCalculator";
@@ -32,13 +32,343 @@ const addUpload = (item) => {
   localStorage.setItem(UPLOADS_KEY, JSON.stringify(arr.slice(0, 50)));
 };
 
-// ========= Analysis Results (your component, unchanged) =========
+// ========= AI AGENT COMPONENTS =========
+
+// AI Agent Wrapper Component
+const AIAgentWrapper = ({ children, isActive, className = "", ...props }) => {
+  return (
+    <div className={`ai-agent-wrapper ${isActive ? 'active' : ''} ${className}`} {...props}>
+      {children}
+    </div>
+  );
+};
+
+// AI Status Messages Component
+const AIStatusMessage = ({ message, submessage, type = "processing", icon: Icon }) => {
+  const [displayedMessage, setDisplayedMessage] = useState("");
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    if (type === "processing" && message) {
+      setDisplayedMessage("");
+      setMessageIndex(0);
+
+      const timer = setInterval(() => {
+        setMessageIndex((prevIndex) => {
+          if (prevIndex < message.length) {
+            setDisplayedMessage(message.slice(0, prevIndex + 1));
+            return prevIndex + 1;
+          } else {
+            clearInterval(timer);
+            return prevIndex;
+          }
+        });
+      }, 50);
+
+      return () => clearInterval(timer);
+    } else {
+      setDisplayedMessage(message);
+    }
+  }, [message, type]);
+
+  return (
+    <div className="ai-status-container">
+      <div className="ai-status-message">
+        <div className={`ai-status-icon ${type}`}>
+          {Icon ? <Icon size={14} /> : <Wand2 size={14} />}
+        </div>
+        <span className={type === "processing" ? "typing-effect" : ""}>
+          {displayedMessage}
+        </span>
+      </div>
+      {submessage && (
+        <div className="ai-status-submessage">
+          {submessage}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// AI Progress Steps Component
+const AIProgressSteps = ({ steps, currentStep }) => {
+  return (
+    <div className="ai-progress-steps">
+      {steps.map((step, index) => {
+        const isCompleted = index < currentStep;
+        const isActive = index === currentStep;
+
+        return (
+          <div
+            key={index}
+            className={`ai-progress-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+          >
+            <div className="ai-progress-indicator">
+              {isCompleted ? <CheckCircle size={16} /> : index + 1}
+            </div>
+            <div className="ai-progress-content">
+              <div className="ai-progress-title">{step.title}</div>
+              <div className="ai-progress-description">{step.description}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Embedded Shopify Preview Component
+const EmbeddedShopifyPreview = ({
+  isOpen,
+  onClose,
+  productData,
+  onPublish,
+  publishStatus,
+  autoScroll = true
+}) => {
+  const [currentHighlight, setCurrentHighlight] = useState(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const mockShopifyFields = [
+    { id: 'title', label: 'Product Title', value: productData?.generatedContent?.title || 'Loading...', delay: 1000 },
+    { id: 'description', label: 'Description', value: productData?.generatedContent?.description || 'Loading...', delay: 2000 },
+    { id: 'price', label: 'Price', value: productData?.extractedData?.suggestedPrice ? `$${productData.extractedData.suggestedPrice.min} - $${productData.extractedData.suggestedPrice.max}` : 'Loading...', delay: 3000 },
+    { id: 'tags', label: 'SEO Tags', value: productData?.generatedContent?.seoTags?.join(', ') || 'Loading...', delay: 4000 },
+    { id: 'shipping', label: 'Shipping', value: productData?.shippingData?.singleItem?.recommendedBox || 'Loading...', delay: 5000 }
+  ];
+
+  // Auto-scroll simulation
+  useEffect(() => {
+    if (!isOpen || !autoScroll || isHovered) return;
+
+    let currentIndex = 0;
+    const scrollInterval = setInterval(() => {
+      if (currentIndex < mockShopifyFields.length && !isHovered) {
+        setCurrentHighlight(mockShopifyFields[currentIndex].id);
+        setScrollProgress((currentIndex + 1) / mockShopifyFields.length * 100);
+        currentIndex++;
+      } else if (currentIndex >= mockShopifyFields.length) {
+        clearInterval(scrollInterval);
+        setCurrentHighlight(null);
+      }
+    }, 1500);
+
+    return () => clearInterval(scrollInterval);
+  }, [isOpen, autoScroll, isHovered, mockShopifyFields.length]);
+
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      className="embedded-preview-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="embedded-preview-container">
+        <div className="embedded-preview-header">
+          <div className="embedded-preview-title">
+            <Monitor size={20} />
+            Shopify Product Preview
+          </div>
+          <div className="embedded-preview-controls">
+            <button className="btn ai-secondary" onClick={() => window.open('#', '_blank')}>
+              <Maximize2 size={14} />
+              Open in New Tab
+            </button>
+            <button className="btn" onClick={onClose}>
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className="embedded-preview-content">
+          <div className="embedded-preview-sidebar">
+            <h3 style={{ marginTop: 0, color: '#065f46' }}>Auto-Populate Progress</h3>
+            <div style={{ marginBottom: '20px' }}>
+              <div className="progress-bar-container">
+                <div
+                  className="progress-bar"
+                  style={{ width: `${scrollProgress}%`, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                ></div>
+              </div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+                {Math.round(scrollProgress)}% Complete
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {mockShopifyFields.map((field) => (
+                <div
+                  key={field.id}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: currentHighlight === field.id
+                      ? '2px solid #10b981'
+                      : '1px solid #e5e7eb',
+                    background: currentHighlight === field.id
+                      ? 'rgba(16, 185, 129, 0.1)'
+                      : 'white',
+                    transition: 'all 0.5s ease'
+                  }}
+                >
+                  <div style={{ fontWeight: '600', fontSize: '13px', color: '#374151', marginBottom: '4px' }}>
+                    {field.label}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                    {field.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+              <button
+                className={`btn ai-primary`}
+                style={{ width: '100%' }}
+                onClick={onPublish}
+                disabled={publishStatus === 'publishing'}
+              >
+                {publishStatus === 'publishing' ? (
+                  <>
+                    <div className="ai-loading-dots">
+                      <div className="ai-loading-dot"></div>
+                      <div className="ai-loading-dot"></div>
+                      <div className="ai-loading-dot"></div>
+                    </div>
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <Zap size={16} />
+                    Publish to Shopify
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="embedded-preview-main"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            {/* Mock Shopify Interface */}
+            <div style={{
+              padding: '40px',
+              minHeight: '100%',
+              overflow: 'auto',
+              background: '#f8fafc',
+              position: 'relative'
+            }}>
+              <div style={{
+                maxWidth: '800px',
+                margin: '0 auto',
+                background: 'white',
+                borderRadius: '12px',
+                padding: '32px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                minHeight: '600px'
+              }}>
+                <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '24px', color: '#1f2937' }}>
+                  Create Product
+                </h1>
+
+                {mockShopifyFields.map((field) => (
+                  <div
+                    key={field.id}
+                    style={{
+                      marginBottom: '24px',
+                      position: 'relative'
+                    }}
+                  >
+                    {currentHighlight === field.id && (
+                      <div
+                        className="scroll-highlight-overlay active"
+                        style={{
+                          position: 'absolute',
+                          inset: '-8px',
+                          zIndex: 5
+                        }}
+                      />
+                    )}
+                    <label style={{
+                      display: 'block',
+                      fontWeight: '600',
+                      marginBottom: '8px',
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      {field.label}
+                    </label>
+                    {field.id === 'description' ? (
+                      <textarea
+                        style={{
+                          width: '100%',
+                          minHeight: '120px',
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          background: currentHighlight === field.id ? 'rgba(16, 185, 129, 0.05)' : 'white',
+                          transition: 'background-color 0.5s ease'
+                        }}
+                        value={field.value}
+                        readOnly
+                      />
+                    ) : (
+                      <input
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          background: currentHighlight === field.id ? 'rgba(16, 185, 129, 0.05)' : 'white',
+                          transition: 'background-color 0.5s ease'
+                        }}
+                        value={field.value}
+                        readOnly
+                      />
+                    )}
+                  </div>
+                ))}
+
+                <div style={{
+                  marginTop: '32px',
+                  padding: '20px',
+                  background: '#f0fdf4',
+                  borderRadius: '8px',
+                  border: '1px solid #bbf7d0'
+                }}>
+                  <div style={{ fontSize: '14px', color: '#065f46', fontWeight: '600', marginBottom: '8px' }}>
+                    ✨ AI Generated Content Ready!
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#047857', lineHeight: '1.5' }}>
+                    Your product listing has been automatically populated with AI-generated content.
+                    Review the fields above and click "Save" when ready to publish.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// ========= Analysis Results (enhanced with embedded preview) =========
 const AnalysisResults = ({ result, processingTime }) => {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [publishStatus, setPublishStatus] = useState("idle"); // idle | publishing | success | error
   const [publishError, setPublishError] = useState(null);
   const [publishResult, setPublishResult] = useState(null);
+  const [showEmbeddedPreview, setShowEmbeddedPreview] = useState(false);
 
   const tabs = [
     { id: "overview", label: "Overview", icon: Package },
@@ -347,15 +677,35 @@ const AnalysisResults = ({ result, processingTime }) => {
 
       <div className="row gap" style={{ marginTop: '16px' }}>
         <button
-          className="btn primary"
+          className="btn ai-primary"
+          disabled={publishStatus === "publishing" || publishStatus === "success"}
+          onClick={() => setShowEmbeddedPreview(true)}
+        >
+          <Eye size={16} />
+          {publishStatus === "publishing" ? "Publishing..." :
+           publishStatus === "success" ? "Published ✓" :
+           "Preview & Publish"}
+        </button>
+        <button
+          className="btn ai-secondary"
           disabled={publishStatus === "publishing" || publishStatus === "success"}
           onClick={handlePublishToShopify}
         >
+          <Zap size={16} />
           {publishStatus === "publishing" ? "Publishing..." :
            publishStatus === "success" ? "Published ✓" :
-           "Publish to Shopify"}
+           "Quick Publish"}
         </button>
       </div>
+
+      {/* Embedded Shopify Preview */}
+      <EmbeddedShopifyPreview
+        isOpen={showEmbeddedPreview}
+        onClose={() => setShowEmbeddedPreview(false)}
+        productData={result}
+        onPublish={handlePublishToShopify}
+        publishStatus={publishStatus}
+      />
     </div>
   );
 };
@@ -474,7 +824,7 @@ const HomePage = ({ onStart }) => (
   </>
 );
 
-// Upload page: keep your look; when analysis finishes, we save to dashboard
+// Upload page: Enhanced with AI Agent interface
 const UploadPage = () => {
   const multiInputRef = useRef(null);
   const [files, setFiles] = useState([]); // For images
@@ -484,30 +834,112 @@ const UploadPage = () => {
   const [error, setError] = useState(null);
   const [processingTime, setProcessingTime] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState(-1);
+  const [aiMessage, setAiMessage] = useState("");
+  const [aiSubmessage, setAiSubmessage] = useState("");
 
+  // AI Progress Steps Configuration
+  const aiProgressSteps = [
+    {
+      title: "Initializing AI Agent",
+      description: "Preparing Gemini Vision for multi-image analysis"
+    },
+    {
+      title: "Analyzing Images",
+      description: "Processing visual content and extracting product details"
+    },
+    {
+      title: "Selecting Best Image",
+      description: "Using AI to determine the optimal product photo"
+    },
+    {
+      title: "Generating Content",
+      description: "Creating title, description, and SEO tags"
+    }
+  ];
+
+  // Enhanced progress handling with AI steps
   React.useEffect(() => {
     let interval = null;
+    let stepInterval = null;
+
     if (status === "processing") {
       setProgress(0);
+      setCurrentStep(0);
+      setAiMessage("AI Agent Initializing...");
+      setAiSubmessage("Starting Gemini Vision analysis for your product images");
+
+      // Progress bar animation
       interval = setInterval(() => {
         setProgress(prev => {
           if (prev >= 95) {
             clearInterval(interval);
             return 95;
           }
-          const increment = Math.random() * 10;
+          const increment = Math.random() * 8;
           return Math.min(prev + increment, 95);
         });
-      }, 500);
-    } else if (status === "ready" || status === "error") {
-      setProgress(status === "ready" ? 100 : 0);
+      }, 400);
+
+      // Step progression with realistic timing
+      const stepMessages = [
+        {
+          message: "AI Agent Initializing...",
+          submessage: "Preparing Gemini Vision for multi-image analysis",
+          duration: 1500
+        },
+        {
+          message: "Analyzing product images...",
+          submessage: "Processing visual content and extracting product details",
+          duration: 3000
+        },
+        {
+          message: "Selecting optimal image...",
+          submessage: "Using AI to determine the best product photo for your listing",
+          duration: 2000
+        },
+        {
+          message: "Generating marketing content...",
+          submessage: "Creating title, description, and SEO-optimized tags",
+          duration: 2500
+        }
+      ];
+
+      let currentStepIndex = 0;
+      const progressSteps = () => {
+        if (currentStepIndex < stepMessages.length) {
+          const step = stepMessages[currentStepIndex];
+          setCurrentStep(currentStepIndex);
+          setAiMessage(step.message);
+          setAiSubmessage(step.submessage);
+
+          setTimeout(() => {
+            currentStepIndex++;
+            progressSteps();
+          }, step.duration);
+        }
+      };
+
+      progressSteps();
+    } else if (status === "ready") {
+      setProgress(100);
+      setCurrentStep(aiProgressSteps.length);
+      setAiMessage("Analysis Complete!");
+      setAiSubmessage("Your product listing is ready for review and publishing");
+    } else if (status === "error") {
+      setProgress(0);
+      setCurrentStep(-1);
+    } else {
+      setCurrentStep(-1);
+      setAiMessage("");
+      setAiSubmessage("");
     }
+
     return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
+      if (interval) clearInterval(interval);
+      if (stepInterval) clearInterval(stepInterval);
     };
-  }, [status]);
+  }, [status, aiProgressSteps.length]);
 
   const handleChoose = () => {
     multiInputRef.current?.click();
@@ -605,9 +1037,31 @@ const UploadPage = () => {
   return (
     <Container className="upload">
       <div className="cols" style={{ alignItems: 'stretch', gap: '16px' }}>
-        <div className="card" style={{ flex: '2.3', display: 'flex', flexDirection: 'column' }}>
+        <AIAgentWrapper
+          isActive={status === "processing" || status === "uploading"}
+          className="card"
+          style={{
+            flex: '1',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '400px',
+            height: 'auto'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <p className="label">1) Upload product images</p>
+            {(status === "processing" || status === "uploading") && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="ai-loading-dots">
+                  <div className="ai-loading-dot"></div>
+                  <div className="ai-loading-dot"></div>
+                  <div className="ai-loading-dot"></div>
+                </div>
+                <span style={{ fontSize: '12px', color: '#10b981', fontWeight: '600' }}>
+                  AI Agent Active
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="dropzone">
@@ -634,45 +1088,67 @@ const UploadPage = () => {
               </button>
               {files.length > 0 && (
                 <button
-                  className="btn primary"
+                  className={`btn ${status === "processing" ? "ai-primary" : "primary"}`}
                   disabled={status === "uploading" || status === "processing"}
                   onClick={handleUpload}
                 >
-                  {status === "processing" ? "Analyzing..." : "Analyze & Pick Best"}
+                  {status === "processing" ? (
+                    <>
+                      <Wand2 size={16} />
+                      AI Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={16} />
+                      Analyze & Pick Best
+                    </>
+                  )}
                 </button>
               )}
             </div>
-            <input 
-              ref={multiInputRef} 
-              type="file" 
-              accept="image/*" 
-              multiple 
-              className="hidden" 
-              onChange={(e) => onMultipleFiles(e.target.files)} 
+            <input
+              ref={multiInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => onMultipleFiles(e.target.files)}
             />
           </div>
 
-          {files.length > 0 && (
+          {files.length > 0 && status === "idle" && (
             <p className="muted" style={{ marginTop: '8px', fontSize: '12px' }}>
               AI will analyze all {files.length} images and automatically select the best one for your listing
             </p>
           )}
-        </div>
+        </AIAgentWrapper>
 
-        <div className="card" style={{ flex: '1', display: 'flex', flexDirection: 'column' }}>
-          <p className="label">2) Status</p>
-          <ol className="status">
-            {[
-              { key: "uploading", label: "Processing images..." },
-              { key: "processing", label: "Gemini analyzing & selecting best image" },
-              { key: "ready", label: "Analysis complete!" },
-            ].map(({ key, label }) => (
-              <li key={key} className={`status-row ${status === key ? "active" : status === "idle" || status === "error" ? "" : "dim"}`}>
-                <span className={`dot ${status === key ? "pulse" : ""}`} />
-                <span className={`status-text ${status === key ? "bold" : ""}`}>{label}</span>
-              </li>
-            ))}
-          </ol>
+        <div className="card" style={{
+          flex: '1',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '400px',
+          height: 'auto'
+        }}>
+          <p className="label">2) AI Agent Status</p>
+
+          {/* AI Status Message */}
+          {aiMessage && (
+            <AIStatusMessage
+              message={aiMessage}
+              submessage={aiSubmessage}
+              type={status === "error" ? "error" : status === "ready" ? "completed" : "processing"}
+              icon={status === "error" ? AlertCircle : status === "ready" ? CheckCircle : Wand2}
+            />
+          )}
+
+          {/* AI Progress Steps */}
+          {(status === "processing" || status === "ready") && (
+            <AIProgressSteps
+              steps={aiProgressSteps}
+              currentStep={currentStep}
+            />
+          )}
 
           <div style={{ flex: '1', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
             {status === "error" && (
@@ -682,18 +1158,44 @@ const UploadPage = () => {
                   <p className="result-title" style={{color: '#dc2626', margin: 0}}>Analysis Failed</p>
                 </div>
                 <p style={{margin: '8px 0', fontSize: '14px', color: '#7f1d1d'}}>{error}</p>
-                <button className="btn" onClick={handleRetry}>Try Again</button>
+                <button className="btn ai-secondary" onClick={handleRetry}>
+                  <Zap size={16} />
+                  Try Again
+                </button>
               </div>
             )}
 
-            {status === "processing" && (
-              <div className="result" style={{background: '#f0f9ff', borderColor: '#0ea5e9'}}>
-                <p className="result-title">AI is analyzing your product...</p>
-                <p style={{margin: '8px 0', fontSize: '14px', color: '#0369a1'}}>
-                  Gemini Vision is extracting product details, generating content, and optimizing shipping. This usually takes 5–15 seconds.
-                </p>
-                <div className="progress-bar-container">
-                  <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+            {status === "idle" && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flex: 1,
+                color: '#6b7280',
+                textAlign: 'center',
+                gap: '12px',
+                minHeight: '250px'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+                  border: '2px solid rgba(16, 185, 129, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Wand2 size={24} color="#10b981" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                    {files.length === 0 ? "AI Agent Ready" : "Ready to Analyze"}
+                  </div>
+                  <div style={{ fontSize: '13px' }}>
+                    {files.length === 0 ? "Upload images to begin analysis" : `${files.length} images selected. Click analyze to continue.`}
+                  </div>
                 </div>
               </div>
             )}
@@ -702,11 +1204,15 @@ const UploadPage = () => {
       </div>
 
       {status === "ready" && analysisResult && (
-        <div className="card" style={{ marginTop: '16px', width: '100%', boxSizing: 'border-box', minWidth: '100%' }}>
+        <AIAgentWrapper
+          isActive={true}
+          className="card"
+          style={{ marginTop: '16px', width: '100%', boxSizing: 'border-box', minWidth: '100%' }}
+        >
           <div style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
             <AnalysisResults result={analysisResult} processingTime={processingTime} />
           </div>
-        </div>
+        </AIAgentWrapper>
       )}
     </Container>
   );
