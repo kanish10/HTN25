@@ -186,6 +186,7 @@ const EmbeddedShopifyPreview = ({
   productData,
   onPublish,
   publishStatus,
+  publishResult,
   autoScroll = true
 }) => {
   const [currentHighlight, setCurrentHighlight] = useState(null);
@@ -288,28 +289,63 @@ const EmbeddedShopifyPreview = ({
             </div>
 
             <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
-              <button
-                className={`btn ai-primary`}
-                style={{ width: '100%' }}
-                onClick={onPublish}
-                disabled={publishStatus === 'publishing'}
-              >
-                {publishStatus === 'publishing' ? (
-                  <>
-                    <div className="ai-loading-dots">
-                      <div className="ai-loading-dot"></div>
-                      <div className="ai-loading-dot"></div>
-                      <div className="ai-loading-dot"></div>
+              {publishStatus === 'success' ? (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    border: '1px solid #22c55e'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <CheckCircle size={20} color="#22c55e" />
+                      <span style={{ fontWeight: '600', color: '#15803d' }}>Successfully Published!</span>
                     </div>
-                    Publishing...
-                  </>
-                ) : (
-                  <>
-                    <Zap size={16} />
-                    Publish to Shopify
-                  </>
-                )}
-              </button>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#166534' }}>
+                      Your product is now in Shopify as a draft
+                    </p>
+                  </div>
+                  <a
+                    className="btn ai-primary"
+                    style={{
+                      width: '100%',
+                      background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                      border: 'none',
+                      color: 'white'
+                    }}
+                    href={publishResult?.productUrl || `https://shopify.com/admin/products`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <ExternalLink size={16} />
+                    Go to Shopify & Edit
+                  </a>
+                </div>
+              ) : (
+                <button
+                  className={`btn ai-primary`}
+                  style={{ width: '100%' }}
+                  onClick={onPublish}
+                  disabled={publishStatus === 'publishing'}
+                >
+                  {publishStatus === 'publishing' ? (
+                    <>
+                      <div className="ai-loading-dots">
+                        <div className="ai-loading-dot"></div>
+                        <div className="ai-loading-dot"></div>
+                        <div className="ai-loading-dot"></div>
+                      </div>
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={16} />
+                      Publish to Shopify
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
@@ -707,23 +743,91 @@ const AnalysisResults = ({ result, processingTime }) => {
 
       {/* Publish Status Messages */}
       {publishStatus === "success" && publishResult && (
-        <div className="result" style={{ marginTop: '16px', background: '#f0fdf4', borderColor: '#22c55e' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#15803d' }}>
-            <CheckCircle size={16} />
-            <p className="result-title" style={{ color: '#15803d', margin: 0 }}>Published Successfully!</p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.5 }} // Delay to show after autocomplete animation
+          className="result"
+          style={{
+            marginTop: '16px',
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+            borderColor: '#22c55e',
+            border: '2px solid #22c55e',
+            boxShadow: '0 4px 12px rgba(34, 197, 94, 0.2)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: '#22c55e',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <CheckCircle size={20} color="white" />
+            </div>
+            <div>
+              <p className="result-title" style={{ color: '#15803d', margin: 0, fontSize: '18px' }}>
+                🎉 Successfully Published!
+              </p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#166534' }}>
+                Your product is now live in Shopify as a draft
+              </p>
+            </div>
           </div>
-          <p style={{ margin: '8px 0', fontSize: '14px', color: '#166534' }}>
-            Product created in Shopify as draft. You can review and activate it.
-          </p>
+
+          <div style={{
+            background: 'rgba(34, 197, 94, 0.1)',
+            padding: '16px',
+            borderRadius: '8px',
+            marginBottom: '16px',
+            border: '1px solid rgba(34, 197, 94, 0.2)'
+          }}>
+            <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#166534', fontWeight: '600' }}>
+              ✅ What's been created:
+            </p>
+            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#166534' }}>
+              <li>Product listing with AI-generated content</li>
+              <li>Optimized shipping configuration</li>
+              <li>SEO tags and metadata</li>
+              <li>Ready for review and activation</li>
+            </ul>
+          </div>
+
           <div className="row gap">
-            <a className="btn" href={publishResult.productUrl} target="_blank" rel="noreferrer">
-              <ExternalLink size={14} /> Edit in Shopify
+            <a
+              className="btn ai-primary"
+              href={publishResult.productUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                border: 'none',
+                color: 'white',
+                fontWeight: '600'
+              }}
+            >
+              <ExternalLink size={16} />
+              Go to Shopify & Edit
             </a>
-            <a className="btn" href={publishResult.publicUrl} target="_blank" rel="noreferrer">
-              <ExternalLink size={14} /> View Product
+            <a className="btn ai-secondary" href={publishResult.publicUrl} target="_blank" rel="noreferrer">
+              <Eye size={14} />
+              Preview Product
             </a>
           </div>
-        </div>
+
+          <p style={{
+            margin: '12px 0 0 0',
+            fontSize: '12px',
+            color: '#6b7280',
+            textAlign: 'center',
+            fontStyle: 'italic'
+          }}>
+            💡 Tip: Review your product details in Shopify, then publish when ready!
+          </p>
+        </motion.div>
       )}
 
       {publishStatus === "error" && (
@@ -739,23 +843,23 @@ const AnalysisResults = ({ result, processingTime }) => {
 
       <div className="row gap" style={{ marginTop: '16px' }}>
         <button
-          className="btn ai-primary"
-          disabled={publishStatus === "publishing" || publishStatus === "success"}
-          onClick={() => setShowEmbeddedPreview(true)}
+          className={`btn ${publishStatus === "success" ? "ai-success" : "ai-primary"}`}
+          disabled={publishStatus === "publishing"}
+          onClick={() => publishStatus === "success" ? setPublishStatus("idle") : setShowEmbeddedPreview(true)}
         >
           <Eye size={16} />
           {publishStatus === "publishing" ? "Publishing..." :
-           publishStatus === "success" ? "Published ✓" :
+           publishStatus === "success" ? "Published ✓ - New Upload" :
            "Preview & Publish"}
         </button>
         <button
-          className="btn ai-secondary"
-          disabled={publishStatus === "publishing" || publishStatus === "success"}
-          onClick={handlePublishToShopify}
+          className={`btn ${publishStatus === "success" ? "ai-success" : "ai-secondary"}`}
+          disabled={publishStatus === "publishing"}
+          onClick={() => publishStatus === "success" ? setPublishStatus("idle") : handlePublishToShopify()}
         >
           <Zap size={16} />
           {publishStatus === "publishing" ? "Publishing..." :
-           publishStatus === "success" ? "Published ✓" :
+           publishStatus === "success" ? "Published ✓ - New Upload" :
            "Quick Publish"}
         </button>
       </div>
@@ -767,6 +871,7 @@ const AnalysisResults = ({ result, processingTime }) => {
         productData={result}
         onPublish={handlePublishToShopify}
         publishStatus={publishStatus}
+        publishResult={publishResult}
       />
     </div>
   );

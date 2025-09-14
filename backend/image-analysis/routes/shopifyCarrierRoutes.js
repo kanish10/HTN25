@@ -135,7 +135,7 @@ router.post('/shopify/shipping-rates', async (req, res) => {
 
     // Primary optimized option
     rates.push({
-      service_name: 'AI Optimized Shipping',
+      service_name: 'ShopBrain Optimized Shipping',
       service_code: 'SHOPBRAIN_OPTIMIZED',
       total_price: Math.round(shippingCalc.totalCost * 100),
       description: createOptimizedDescription(shippingCalc, transformedItems),
