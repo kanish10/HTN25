@@ -3,6 +3,7 @@ const S3Service = require('../services/s3Service');
 const GeminiService = require('../services/geminiService');
 const DataFormatter = require('../utils/dataFormatter');
 const MongoDBService = require('../services/mongoDBService');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -11,8 +12,8 @@ const s3Service = new S3Service();
 const geminiService = new GeminiService();
 const mongoDBService = new MongoDBService();
 
-// POST /upload-more - Handle multiple image analysis and store only the best one
-router.post('/upload-more', async (req, res) => {
+// POST /upload-more - Handle multiple image analysis and store only the best one (requires authentication)
+router.post('/upload-more', authenticateToken, async (req, res) => {
   try {
     const { images } = req.body; // Array of { fileName, fileType, imageData } or imageUrls
 
@@ -119,7 +120,7 @@ router.post('/upload-more', async (req, res) => {
     // Generate additional content for the best image
     const generatedContent = await geminiService.generateProductContent(bestImage.extractedData);
 
-    // Format data for MongoDB
+    // Format data for MongoDB with userId
     const mongoDBData = DataFormatter.formatForDynamoDB(
       productId,
       imageUrl,
@@ -136,6 +137,9 @@ router.post('/upload-more', async (req, res) => {
         }))
       }
     );
+    
+    // Add userId to the formatted data
+    mongoDBData.userId = req.userId;
 
     // Upload to MongoDB
     try {

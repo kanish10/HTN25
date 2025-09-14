@@ -12,6 +12,7 @@ const directUploadRoutes = require('./routes/directUploadRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
 const mongoDBRoutes = require('./routes/mongoDBRoutes');
 const s3Routes = require('./routes/s3Routes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -43,6 +44,7 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
+app.use('/api/auth', authRoutes);
 app.use('/api', uploadRoutes);
 app.use('/api', multiImageRoutes);
 app.use('/api', directUploadRoutes);
