@@ -93,7 +93,24 @@ class AdvancedShippingOptimizer {
       };
 
       // Run the advanced 3D bin packing algorithm
+      console.log(`🧮 DEBUGGING BOX SELECTION:`);
+      console.log(`   Input items: ${geminiItems.length} types`);
+      geminiItems.forEach((item, i) => {
+        console.log(`   ${i+1}. ${item.suggestedName} - qty: ${item.quantity}, dims: ${item.dimensions.length}×${item.dimensions.width}×${item.dimensions.height}, weight: ${item.estimatedWeight}lbs`);
+      });
+      console.log(`   Available boxes: ${this.boxCatalog.map(b => `${b.name}($${b.cost})`).join(', ')}`);
+
       const result = optimizeFromGemini(geminiItems, this.boxCatalog, optimizerOptions);
+
+      console.log(`🎯 OPTIMIZATION RESULT:`);
+      console.log(`   Selected boxes: ${result.shipments?.length || 0}`);
+      if (result.shipments) {
+        result.shipments.forEach((shipment, i) => {
+          const boxInfo = this.boxCatalog.find(b => b.id === shipment.boxId);
+          console.log(`   Box ${i+1}: ${boxInfo?.name || shipment.boxId} ($${shipment.cost}) - ${shipment.fillPercent}% full`);
+        });
+      }
+      console.log(`   Total cost: $${result.summary?.totalCost || 'unknown'}`);
 
       // Transform result to match expected API format
       return this.transformResult(result, items);

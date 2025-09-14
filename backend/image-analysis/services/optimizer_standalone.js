@@ -109,12 +109,30 @@ function pack2DGuillotine(sheetW, sheetL, rects) {
 function tryPackInBox(box, items) {
   // box: {id, cost, length, width, height, maxWeight}
   // items: [{id, length,width,height, weight, qty}]
+
+  // SMART QUANTITY HANDLING: Try to pack multiple identical items efficiently
+  // First, attempt to pack items with their full quantities
   let remaining = [];
   items.forEach(it => {
-    for (let i=0;i<it.qty;i++) remaining.push({
-      ...it, qty:1
-    });
+    if (it.qty <= 4 && areItemsIdentical([it])) {
+      // For small quantities of identical items, try to pack them together first
+      remaining.push({...it}); // Keep original quantity for better packing
+    } else {
+      // For large quantities or mixed items, expand normally
+      for (let i=0;i<it.qty;i++) remaining.push({...it, qty:1});
+    }
   });
+
+  // Helper function to check if items are identical (same dimensions)
+  function areItemsIdentical(itemsToCheck) {
+    if (itemsToCheck.length <= 1) return true;
+    const first = itemsToCheck[0];
+    return itemsToCheck.every(item =>
+      item.length === first.length &&
+      item.width === first.width &&
+      item.height === first.height
+    );
+  }
 
   // sort by volume desc
   remaining.sort((a,b)=> vol(b)-vol(a));
@@ -161,13 +179,18 @@ function tryPackInBox(box, items) {
     for (const c of consider) {
       if (Math.abs(c.orient.h - chosenH) < 1e-9) {
 
-        layerRects.push({
-            id: c.it.id + '#' + Math.random().toString(36).slice(2,6),
-            w: c.orient.w,
-            l: c.orient.l,
-            _it: c.it,
-            _o: c.orient
-        });
+        // HANDLE QUANTITIES: Create multiple rectangles for items with qty > 1
+        const quantity = c.it.qty || 1;
+        for (let i = 0; i < quantity; i++) {
+          layerRects.push({
+              id: c.it.id + '#' + i + '#' + Math.random().toString(36).slice(2,4),
+              w: c.orient.w,
+              l: c.orient.l,
+              _it: c.it,
+              _o: c.orient,
+              _qtyIndex: i // Track which instance of the quantity this is
+          });
+        }
 
         chosenIds.add(c.it);
       }
@@ -187,8 +210,8 @@ function tryPackInBox(box, items) {
         x: p.x, y: p.y, z: currentZ,
         dims: { length:o.l, width:o.w, height:o.h }
       });
-      totalWeight += it.weight;
-      usedVol += (o.l*o.w*o.h);
+      totalWeight += it.weight; // Weight per individual item (correct)
+      usedVol += (o.l*o.w*o.h); // Volume per individual item (correct)
       placedCount++;
     }
 
@@ -262,10 +285,10 @@ function optimizeShipment(input) {
     qty: +p.quantity
   }));
 
-  // Expand items and sort by volume
-  const itemList = [];
-  for (const it of items) for (let i=0;i<it.qty;i++) itemList.push({...it, qty:1});
-  itemList.sort((a,b)=> vol(b)-vol(a));
+  // SMART QUANTITY HANDLING: Keep items with quantity > 1 grouped for better packing
+  // Only expand when the 3D packing algorithm specifically needs individual items
+  const itemList = items.map(it => ({...it})); // Keep original quantities
+  itemList.sort((a,b)=> (vol(b) * b.qty) - (vol(a) * a.qty)); // Sort by total volume (vol * qty)
 
   // Greedy multi-bin: keep packing remaining items by trying each box type; choose the box that packs the most with best score
   let remaining = itemList;

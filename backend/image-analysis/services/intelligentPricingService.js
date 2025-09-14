@@ -337,11 +337,14 @@ REMEMBER: The optimized price MUST be significantly below $${pricingData.shopify
    * Format pricing for Shopify carrier service response
    */
   formatForShopify(intelligentPricing, optimizationResult) {
+    // Get box details for better description
+    const boxDetails = this.getBoxDescription(optimizationResult);
+
     const pricing = {
       service_name: 'ShopBrain AI Optimized',
       service_code: 'SHOPBRAIN_INTELLIGENT',
       total_price: Math.round(intelligentPricing.optimizedPrice * 100), // Convert to cents
-      description: intelligentPricing.valueProposition,
+      description: `${intelligentPricing.valueProposition} ${boxDetails}`,
       currency: 'USD',
       metadata: {
         algorithm: '3D_BIN_PACKING_WITH_AI_PRICING',
@@ -354,6 +357,41 @@ REMEMBER: The optimized price MUST be significantly below $${pricingData.shopify
     };
 
     return pricing;
+  }
+
+  /**
+   * Get box description for shipping option
+   */
+  getBoxDescription(optimizationResult) {
+    if (!optimizationResult.boxes || optimizationResult.boxes.length === 0) {
+      return "Using optimized packaging.";
+    }
+
+    const boxCount = optimizationResult.totalBoxes || optimizationResult.boxes.length;
+    if (boxCount === 1) {
+      const box = optimizationResult.boxes[0];
+      const boxName = box.boxName || this.getBoxNameFromId(box.boxId) || 'optimized box';
+      const utilization = box.utilization || optimizationResult.optimization?.averageUtilization || 75;
+      return `Using 1 ${boxName} (${utilization.toFixed(1)}% packed).`;
+    } else {
+      return `Using ${boxCount} optimized boxes (${(optimizationResult.optimization?.averageUtilization || 75).toFixed(1)}% avg packed).`;
+    }
+  }
+
+  /**
+   * Get box name from box ID
+   */
+  getBoxNameFromId(boxId) {
+    const boxNames = {
+      'small-envelope': 'Small Envelope',
+      'envelope': 'Padded Envelope',
+      'large-envelope': 'Large Envelope',
+      'small': 'Small Box',
+      'medium': 'Medium Box',
+      'large': 'Large Box',
+      'xlarge': 'Extra Large Box'
+    };
+    return boxNames[boxId] || boxId;
   }
 }
 

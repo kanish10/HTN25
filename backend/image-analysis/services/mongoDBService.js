@@ -282,7 +282,7 @@ class MongoDBService {
   async searchProducts(searchQuery, limit = 50) {
     try {
       await this.connect();
-      
+
       // Create text search query
       const query = {
         $or: [
@@ -294,16 +294,16 @@ class MongoDBService {
           { 'generatedContent.seoDescription': { $regex: searchQuery, $options: 'i' } }
         ]
       };
-      
+
       const products = await this.collection
         .find(query)
         .limit(limit)
         .sort({ createdAt: -1 })
         .toArray();
-      
+
       // Remove MongoDB-specific _id fields from response
       const cleanProducts = products.map(({ _id, ...product }) => product);
-      
+
       return {
         products: cleanProducts,
         count: cleanProducts.length,
@@ -313,6 +313,67 @@ class MongoDBService {
     } catch (error) {
       console.error('Error searching products in MongoDB:', error);
       throw new Error(`Failed to search products in MongoDB: ${error.message}`);
+    }
+  }
+
+  /**
+   * Find product by name (for shipping optimization)
+   * Searches by suggestedName, title, and generated titles
+   * @param {string} productName - Product name from Shopify
+   * @returns {Promise<Object|null>} - Product data with dimensions and weight, or null if not found
+   */
+  async findProductByName(productName) {
+    try {
+      await this.connect();
+
+      console.log(`🔍 MongoDB: Searching for product by name: "${productName}"`);
+
+      // Create flexible search query to match product names
+      const searchQuery = {
+        $or: [
+          { 'extractedData.suggestedName': { $regex: productName, $options: 'i' } },
+          { 'generatedContent.title': { $regex: productName, $options: 'i' } },
+          { 'extractedData.title': { $regex: productName, $options: 'i' } },
+          // Also search for partial matches in case names don't match exactly
+          { 'extractedData.suggestedName': { $regex: productName.replace(/\s+/g, '.*'), $options: 'i' } },
+          { 'generatedContent.title': { $regex: productName.replace(/\s+/g, '.*'), $options: 'i' } }
+        ]
+      };
+
+      const product = await this.collection.findOne(searchQuery, {
+        sort: { createdAt: -1 } // Get the most recent if multiple matches
+      });
+
+      if (product) {
+        console.log(`✅ MongoDB: Found product "${product.extractedData?.suggestedName}" with real dimensions`);
+
+        // Return the clean product data with shipping-relevant info
+        const shippingData = {
+          productId: product.productId,
+          name: product.extractedData?.suggestedName || product.generatedContent?.title || productName,
+          dimensions: product.extractedData?.dimensions || null,
+          weight: product.extractedData?.estimatedWeight || null,
+          material: product.extractedData?.material || null,
+          category: product.extractedData?.category || null,
+          found: true,
+          source: 'mongodb'
+        };
+
+        console.log(`📦 MongoDB: Returning shipping data:`, {
+          name: shippingData.name,
+          dimensions: shippingData.dimensions,
+          weight: shippingData.weight
+        });
+
+        return shippingData;
+      } else {
+        console.log(`❌ MongoDB: No product found matching "${productName}"`);
+        return null;
+      }
+
+    } catch (error) {
+      console.error('❌ MongoDB: Error finding product by name:', error);
+      return null; // Return null instead of throwing to allow fallback to estimates
     }
   }
 }
