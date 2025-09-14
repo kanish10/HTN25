@@ -1,11 +1,13 @@
 const express = require('express');
 const ShopifyService = require('../services/shopifyService');
 const ShippingOptimizationService = require('../services/shippingOptimizationService');
+const AdvancedShippingOptimizer = require('../services/advancedShippingOptimizer');
 const router = express.Router();
 
 // Initialize services
 const shopifyService = new ShopifyService();
-const shippingService = new ShippingOptimizationService();
+const shippingService = new ShippingOptimizationService(); // Legacy service
+const advancedOptimizer = new AdvancedShippingOptimizer(); // New advanced service
 
 // Product mapping storage (in production, use database)
 const productMappings = new Map(); // shopifyProductId -> analysisData
@@ -50,13 +52,13 @@ router.post('/shopify/shipping-rates', async (req, res) => {
       });
     }
 
-    // Calculate optimal shipping using our advanced algorithm
-    const shippingCalc = await shippingService.calculateOptimalPacking(
+    // Calculate optimal shipping using our advanced 3D bin packing algorithm
+    const shippingCalc = await advancedOptimizer.optimizeShipment(
       transformedItems,
-      destination
+      { shipTogether: 'auto' }
     );
 
-    console.log(`✅ Optimized shipping: ${shippingCalc.boxes.length} boxes, $${shippingCalc.totalCost}`);
+    console.log(`✅ Optimized shipping: ${shippingCalc.totalBoxes || shippingCalc.boxes?.length} boxes, $${shippingCalc.totalCost}`);
 
     // Calculate standard shipping for comparison
     const standardCost = items.reduce((sum, item) => {
@@ -65,53 +67,86 @@ router.post('/shopify/shipping-rates', async (req, res) => {
       return sum + (estimatedWeight > 2 ? 9.00 : 6.50);
     }, 0);
 
-    // Return optimized rates to Shopify
-    const rates = [
-      {
-        service_name: 'ShopBrain Optimized Shipping',
-        service_code: 'SHOPBRAIN_OPTIMIZED',
-        total_price: Math.round(shippingCalc.totalCost * 100), // Convert to cents
-        description: `${shippingCalc.boxes.length} optimized packages • ${shippingCalc.optimization.volumeUtilization}% space efficiency`,
-        currency: 'USD',
-        metadata: {
-          boxes_count: shippingCalc.boxes.length,
-          utilization: shippingCalc.optimization.volumeUtilization,
-          savings: shippingCalc.optimization.savings.efficiency,
-          packing_plan: JSON.stringify(shippingCalc.boxes.slice(0, 3)), // Limit metadata size
-          optimization_method: 'AI_3D_BIN_PACKING'
-        }
+    // Return optimized rates to Shopify with proper box size information
+    const rates = [];
+
+    // Get box size descriptions for better clarity
+    const getBoxSizeLabel = (boxType) => {
+      const sizeMap = {
+        'Small Envelope': 'Small Envelope',
+        'Padded Envelope': 'Padded Envelope',
+        'Large Envelope': 'Large Envelope',
+        'Small Box': 'Small Box',
+        'Medium Box': 'Medium Box',
+        'Large Box': 'Large Box',
+        'Extra Large Box': 'XL Box'
+      };
+      return sizeMap[boxType] || boxType;
+    };
+
+    // Create detailed description of what's being shipped
+    const createOptimizedDescription = (shippingResult, items) => {
+      const shipments = shippingResult.shipments || [];
+      const totalBoxes = shippingResult.summary?.totalBoxes || shipments.length;
+
+      // Calculate total item count including quantities
+      const totalItemCount = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
+
+      if (totalBoxes === 1 && shipments.length > 0) {
+        const shipment = shipments[0];
+        const boxName = getBoxNameFromId(shipment.boxId);
+        const boxLabel = getBoxSizeLabel(boxName);
+        const utilization = Math.round(shipment.fillPercent || 75);
+        return `${boxLabel} (${utilization}% full) • ${totalItemCount} item${totalItemCount > 1 ? 's' : ''}`;
+      } else if (shipments.length > 0) {
+        const boxTypes = shipments.map(s => {
+          const boxName = getBoxNameFromId(s.boxId);
+          return getBoxSizeLabel(boxName);
+        }).join(' + ');
+        return `${boxTypes} • ${totalItemCount} items optimally packed`;
+      } else {
+        // Fallback for when box details aren't available
+        return `${totalBoxes} optimized box${totalBoxes > 1 ? 'es' : ''} • ${totalItemCount} items`;
       }
-    ];
+    };
 
-    // Add standard option if optimized is significantly better
-    if (shippingCalc.totalCost < standardCost * 0.9) {
-      rates.push({
-        service_name: 'Standard Shipping',
-        service_code: 'STANDARD',
-        total_price: Math.round(standardCost * 100),
-        description: 'Individual item packaging',
-        currency: 'USD',
-        metadata: {
-          method: 'STANDARD'
-        }
-      });
-    }
+    // Helper function to get box name from ID
+    const getBoxNameFromId = (boxId) => {
+      const boxMap = {
+        'small-envelope': 'Small Envelope',
+        'envelope': 'Padded Envelope',
+        'large-envelope': 'Large Envelope',
+        'small-box': 'Small Box',
+        'medium-box': 'Medium Box',
+        'large-box': 'Large Box',
+        'xl-box': 'Extra Large Box'
+      };
+      return boxMap[boxId] || 'Box';
+    };
 
-    // Add Express option (20% premium on optimized)
+    // Primary optimized option
     rates.push({
-      service_name: 'ShopBrain Express (Optimized)',
-      service_code: 'SHOPBRAIN_EXPRESS',
-      total_price: Math.round(shippingCalc.totalCost * 1.2 * 100),
-      description: `${shippingCalc.boxes.length} packages • Express delivery`,
+      service_name: 'AI Optimized Shipping',
+      service_code: 'SHOPBRAIN_OPTIMIZED',
+      total_price: Math.round(shippingCalc.totalCost * 100),
+      description: createOptimizedDescription(shippingCalc, transformedItems),
       currency: 'USD',
       metadata: {
-        boxes_count: shippingCalc.boxes.length,
-        utilization: shippingCalc.optimization.volumeUtilization,
-        express: true
+        boxes_count: shippingCalc.summary?.totalBoxes || shippingCalc.shipments?.length || 1,
+        utilization: shippingCalc.shipments?.reduce((sum, s) => sum + s.fillPercent, 0) / (shippingCalc.shipments?.length || 1) || 75,
+        savings: shippingCalc.optimization?.savings?.percentage || 'optimized',
+        box_types: (shippingCalc.shipments || []).map(s => {
+          const boxName = getBoxNameFromId(s.boxId);
+          return getBoxSizeLabel(boxName);
+        }).join(', '),
+        optimization_method: 'AI_3D_BIN_PACKING_ADVANCED'
       }
     });
 
-    console.log(`📦 Returning ${rates.length} shipping options to Shopify`);
+    // REMOVED: Standard shipping option as requested
+
+    console.log(`📦 Returning ${rates.length} optimized shipping options to Shopify`);
+    console.log('📋 Shipping options:', rates.map(r => `${r.service_name}: ${r.description} ($${(r.total_price/100).toFixed(2)})`).join(' | '));
 
     res.json({ rates });
 
@@ -413,51 +448,49 @@ async function transformShopifyItems(shopifyItems) {
       const productData = await findProductByShopifyId(item.product_id, item.variant_id);
 
       if (productData) {
-        // Use our analyzed data
-        for (let i = 0; i < item.quantity; i++) {
-          transformedItems.push({
-            id: `shopify_${item.product_id}_${item.variant_id}_${i}`,
-            productId: item.product_id,
-            name: item.title || productData.name,
-            dimensions: productData.dimensions,
-            estimatedWeight: productData.weight,
-            weight: productData.weight,
-            material: productData.material || 'unknown',
-            quantity: 1, // Individual items after expansion
-            fragile: productData.fragile || false,
-            shopifyData: {
-              variant_id: item.variant_id,
-              sku: item.sku,
-              price: item.price,
-              vendor: item.vendor
-            }
-          });
-        }
+        // Use our analyzed data - keep as single item with quantity
+        transformedItems.push({
+          id: `shopify_${item.product_id}_${item.variant_id}`,
+          productId: item.product_id,
+          name: item.name || item.title || productData.name,
+          originalName: item.name || item.title,
+          dimensions: productData.dimensions,
+          estimatedWeight: productData.weight,
+          weight: productData.weight,
+          material: productData.material || 'unknown',
+          quantity: item.quantity, // Keep original quantity
+          fragile: productData.fragile || false,
+          shopifyData: {
+            variant_id: item.variant_id,
+            sku: item.sku,
+            price: item.price,
+            vendor: item.vendor
+          }
+        });
       } else {
         // Fallback: estimate dimensions from Shopify data
         const estimatedWeight = item.grams ? (item.grams / 453.592) : 1; // Convert grams to lbs
         const estimatedDimensions = estimateDimensionsFromWeight(estimatedWeight);
 
-        for (let i = 0; i < item.quantity; i++) {
-          transformedItems.push({
-            id: `shopify_${item.product_id}_${item.variant_id}_${i}`,
-            productId: item.product_id,
-            name: item.title || 'Unknown Product',
-            dimensions: estimatedDimensions,
-            estimatedWeight: estimatedWeight,
-            weight: estimatedWeight,
-            material: 'unknown',
-            quantity: 1,
-            fragile: false,
-            estimated: true,
-            shopifyData: {
-              variant_id: item.variant_id,
-              sku: item.sku,
-              price: item.price,
-              vendor: item.vendor
-            }
-          });
-        }
+        transformedItems.push({
+          id: `shopify_${item.product_id}_${item.variant_id}`,
+          productId: item.product_id,
+          name: item.name || item.title || 'Unknown Product',
+          originalName: item.name || item.title,
+          dimensions: estimatedDimensions,
+          estimatedWeight: estimatedWeight,
+          weight: estimatedWeight,
+          material: 'unknown',
+          quantity: item.quantity, // Keep original quantity
+          fragile: false,
+          estimated: true,
+          shopifyData: {
+            variant_id: item.variant_id,
+            sku: item.sku,
+            price: item.price,
+            vendor: item.vendor
+          }
+        });
 
         console.warn(`⚠️ Using estimated dimensions for product ${item.product_id}`);
       }

@@ -145,9 +145,9 @@ const AnalysisResults = ({ result, processingTime }) => {
             })}
           </div>
 
-          <div style={{ minHeight: '200px', width: '100%', maxWidth: '100%' }}>
+          <div style={{ minHeight: '300px', width: '100%', maxWidth: '100%' }}>
             {activeTab === "overview" && (
-              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%' }}>
+              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%', minHeight: '280px' }}>
                 {result.imageUrl && (
                   <div className="card" style={{ padding: '12px' }}>
                     <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Selected Product Image</h4>
@@ -201,7 +201,7 @@ const AnalysisResults = ({ result, processingTime }) => {
             )}
 
             {activeTab === "content" && (
-              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%' }}>
+              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%', minHeight: '280px' }}>
                 <div className="card" style={{ padding: '12px' }}>
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Generated Title</h4>
                   <p style={{ margin: 0, fontWeight: '600', fontSize: '16px' }}>{result.generatedContent.title}</p>
@@ -239,7 +239,7 @@ const AnalysisResults = ({ result, processingTime }) => {
             )}
 
             {activeTab === "shipping" && (
-              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%' }}>
+              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%', minHeight: '280px' }}>
                 <div className="card" style={{ padding: '12px', background: '#f0f9ff' }}>
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Recommended Shipping</h4>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
@@ -275,7 +275,7 @@ const AnalysisResults = ({ result, processingTime }) => {
             )}
 
             {activeTab === "pricing" && (
-              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%' }}>
+              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%', minHeight: '280px' }}>
                 <div className="card" style={{ padding: '12px' }}>
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Suggested Price Range</h4>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>

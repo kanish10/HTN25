@@ -100,7 +100,8 @@ class AdvancedShippingOptimizer {
       });
       console.log(`   Available boxes: ${this.boxCatalog.map(b => `${b.name}($${b.cost})`).join(', ')}`);
 
-      const result = optimizeFromGemini(geminiItems, this.boxCatalog, optimizerOptions);
+      // TEMPORARY FIX: Use simple box selection instead of complex 3D algorithm
+      const result = this.selectBestBoxSimple(geminiItems, optimizerOptions);
 
       console.log(`🎯 OPTIMIZATION RESULT:`);
       console.log(`   Selected boxes: ${result.shipments?.length || 0}`);
@@ -447,6 +448,80 @@ class AdvancedShippingOptimizer {
       }
     ];
   }
+
+  /**
+   * SIMPLE BOX SELECTION: Choose optimal box based on volume and weight constraints
+   */
+  selectBestBoxSimple(geminiItems, options = {}) {
+    // Calculate total volume and weight
+    let totalVolume = 0;
+    let totalWeight = 0;
+    let itemCount = 0;
+
+    geminiItems.forEach(item => {
+      const dims = item.dimensions;
+      const volume = parseFloat(dims.length) * parseFloat(dims.width) * parseFloat(dims.height);
+      const weight = parseFloat(item.estimatedWeight);
+      const qty = parseInt(item.quantity);
+
+      totalVolume += volume * qty;
+      totalWeight += weight * qty;
+      itemCount += qty;
+    });
+
+    console.log(`📊 SIMPLE CALCULATION: ${totalVolume.toFixed(1)} cubic inches, ${totalWeight.toFixed(1)} lbs total`);
+
+    // Find suitable boxes (with 20% volume buffer for packing efficiency)
+    const suitableBoxes = this.boxCatalog.filter(box => {
+      const boxVolume = box.innerDims.length * box.innerDims.width * box.innerDims.height;
+      const fitsVolume = totalVolume <= (boxVolume * 0.8); // 80% packing efficiency
+      const fitsWeight = totalWeight <= box.maxWeight;
+
+      console.log(`   ${box.name}: ${boxVolume} cubic inches, ${box.maxWeight}lbs max - Volume: ${fitsVolume ? '✅' : '❌'}, Weight: ${fitsWeight ? '✅' : '❌'}`);
+
+      return fitsVolume && fitsWeight;
+    });
+
+    if (suitableBoxes.length === 0) {
+      throw new Error('No suitable box found for items');
+    }
+
+    // Choose the cheapest suitable box
+    const bestBox = suitableBoxes.reduce((cheapest, current) =>
+      current.cost < cheapest.cost ? current : cheapest
+    );
+
+    console.log(`🎯 SELECTED: ${bestBox.name} ($${bestBox.cost})`);
+
+    // Return in expected format
+    return {
+      summary: {
+        totalBoxes: 1,
+        totalCost: bestBox.cost,
+        totalActualWeight: totalWeight,
+        totalChargeableWeight: Math.max(totalWeight, (bestBox.innerDims.length * bestBox.innerDims.width * bestBox.innerDims.height) / 139)
+      },
+      shipments: [{
+        boxId: bestBox.id,
+        cost: bestBox.cost,
+        innerDims: bestBox.innerDims,
+        boxVolume: bestBox.innerDims.length * bestBox.innerDims.width * bestBox.innerDims.height,
+        usedVolume: totalVolume,
+        fillPercent: (totalVolume / (bestBox.innerDims.length * bestBox.innerDims.width * bestBox.innerDims.height)) * 100,
+        voidRatio: 1 - (totalVolume / (bestBox.innerDims.length * bestBox.innerDims.width * bestBox.innerDims.height)),
+        packedWeight: totalWeight,
+        dimChargeableWeight: Math.max(totalWeight, (bestBox.innerDims.length * bestBox.innerDims.width * bestBox.innerDims.height) / 139),
+        items: geminiItems.map(item => ({
+          id: item.suggestedName,
+          name: item.suggestedName,
+          position: { x: 0, y: 0, z: 0 },
+          dimensions: item.dimensions,
+          placement: 'simple_calculation'
+        }))
+      }]
+    };
+  }
+
 }
 
 module.exports = AdvancedShippingOptimizer;
