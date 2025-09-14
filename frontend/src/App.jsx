@@ -802,10 +802,10 @@ const Nav = ({ onNav, route, user, onLogout }) => {
   return (
     <header className="nav">
       <Container className="nav-inner">
-        <div className="brand">
+        <button className="brand" onClick={() => onNav("home")}>
           <Box size={22} />
           <span className="brand-name">ShopBrain</span>
-        </div>
+        </button>
         <nav className="nav-links">
           <button className={`link ${route === "home" ? "active" : ""}`} onClick={() => onNav("home")}>Home</button>
           <button className={`link ${route === "upload" ? "active" : ""}`} onClick={() => onNav("upload")}>Upload</button>
@@ -835,7 +835,7 @@ const Nav = ({ onNav, route, user, onLogout }) => {
 const Footer = () => (
   <footer className="footer">
     <Container className="footer-inner">
-      <p>© {new Date().getFullYear()} ShopBrain. Built at Hack the North.</p>
+      <p>© {new Date().getFullYear()} ShopBrain</p>
       <p className="made-with"></p>
     </Container>
   </footer>
@@ -918,8 +918,8 @@ const UploadPage = () => {
       description: "Processing visual content and extracting product details"
     },
     {
-      title: "Selecting Best Image",
-      description: "Using AI to determine the optimal product photo"
+      title: "Setting Things Up",
+      description: "Initializing your listing and product image"
     },
     {
       title: "Generating Content",
@@ -935,7 +935,7 @@ const UploadPage = () => {
     if (status === "processing") {
       setProgress(0);
       setCurrentStep(0);
-      setAiMessage("AI Agent Initializing...");
+      setAiMessage("Initializing AI Agent...");
       setAiSubmessage("Starting Gemini Vision analysis for your product images");
 
       // Progress bar animation
@@ -953,7 +953,7 @@ const UploadPage = () => {
       // Step progression with realistic timing
       const stepMessages = [
         {
-          message: "AI Agent Initializing...",
+          message: "Initializing AI Agent...",
           submessage: "Preparing Gemini Vision for multi-image analysis",
           duration: 1500
         },
@@ -963,12 +963,12 @@ const UploadPage = () => {
           duration: 3000
         },
         {
-          message: "Selecting optimal image...",
-          submessage: "Using AI to determine the best product photo for your listing",
+          message: "Setting Things Up...",
+          submessage: "Initializing your listing and product image",
           duration: 2000
         },
         {
-          message: "Generating marketing content...",
+          message: "Generating content...",
           submessage: "Creating title, description, and SEO-optimized tags",
           duration: 2500
         }
@@ -1200,7 +1200,7 @@ const UploadPage = () => {
             ) : (
               <div className="dz-empty">
                 <Upload size={28} />
-                <p className="muted">Choose 1-5 images • AI will pick the best one</p>
+                <p className="muted">Select Image(s)</p>
               </div>
             )}
             <div className="row gap">
@@ -1216,12 +1216,12 @@ const UploadPage = () => {
                   {status === "processing" ? (
                     <>
                       <Wand2 size={16} />
-                      AI Analyzing...
+                      Working...
                     </>
                   ) : (
                     <>
                       <Zap size={16} />
-                      Analyze & Pick Best
+                      Get Started
                     </>
                   )}
                 </button>
@@ -1239,7 +1239,7 @@ const UploadPage = () => {
 
           {files.length > 0 && status === "idle" && (
             <p className="muted" style={{ marginTop: '8px', fontSize: '12px' }}>
-              AI will analyze all {files.length} images and automatically select the best one for your listing
+              Our agent will analyze your images and select the best ones for your listing.
             </p>
           )}
         </AIAgentWrapper>
@@ -1312,10 +1312,10 @@ const UploadPage = () => {
                 </div>
                 <div>
                   <div style={{ fontWeight: '600', marginBottom: '4px' }}>
-                    {files.length === 0 ? "AI Agent Ready" : "Ready to Analyze"}
+                    {files.length === 0 ? "Agent Online" : "Ready to Analyze"}
                   </div>
                   <div style={{ fontSize: '13px' }}>
-                    {files.length === 0 ? "Upload images to begin analysis" : `${files.length} images selected. Click analyze to continue.`}
+                    {files.length === 0 ? "Upload image(s) to begin" : `${files.length} image(s) selected. Click on Get Started to continue.`}
                   </div>
                 </div>
               </div>
