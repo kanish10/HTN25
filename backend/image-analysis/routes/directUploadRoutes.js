@@ -4,6 +4,7 @@ const GeminiService = require('../services/geminiService');
 const DataFormatter = require('../utils/dataFormatter');
 const MongoDBService = require('../services/mongoDBService');
 const S3Service = require('../services/s3Service');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -27,8 +28,8 @@ const geminiService = new GeminiService();
 const mongoDBService = new MongoDBService();
 const s3Service = new S3Service();
 
-// POST /direct-upload - Upload image directly and analyze
-router.post('/direct-upload', upload.single('image'), async (req, res) => {
+// POST /direct-upload - Upload image directly and analyze (requires authentication)
+router.post('/direct-upload', authenticateToken, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -38,8 +39,8 @@ router.post('/direct-upload', upload.single('image'), async (req, res) => {
 
     console.log('Processing direct upload:', req.file.originalname);
 
-    // get userId TO-DO
-      const userId = req.userId ?? process.env.USER_ID ?? 'unknown'
+    // Get userId from authenticated request
+    const userId = req.userId;
 
     // Generate product ID
     const timestamp = Date.now();

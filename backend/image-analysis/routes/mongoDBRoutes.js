@@ -1,14 +1,15 @@
 const express = require('express');
 const MongoDBService = require('../services/mongoDBService');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 const mongoDBService = new MongoDBService();
 
-// GET /products - List all products from MongoDB
-router.get('/products', async (req, res) => {
+// GET /products - List all products from MongoDB (user-specific)
+router.get('/products', authenticateToken, async (req, res) => {
   try {
     const { status, limit } = req.query;
-    const result = await mongoDBService.listProducts(status, parseInt(limit) || 50);
+    const result = await mongoDBService.listProductsByUser(req.userId, status, parseInt(limit) || 50);
     
     res.json({
       success: true,
@@ -24,8 +25,8 @@ router.get('/products', async (req, res) => {
   }
 });
 
-// GET /products/search - Search products by text query
-router.get('/products/search', async (req, res) => {
+// GET /products/search - Search products by text query (user-specific)
+router.get('/products/search', authenticateToken, async (req, res) => {
   try {
     const { q, limit } = req.query;
     
@@ -35,7 +36,7 @@ router.get('/products/search', async (req, res) => {
       });
     }
     
-    const result = await mongoDBService.searchProducts(q, parseInt(limit) || 50);
+    const result = await mongoDBService.searchProductsByUser(req.userId, q, parseInt(limit) || 50);
     
     res.json({
       success: true,
@@ -51,11 +52,11 @@ router.get('/products/search', async (req, res) => {
   }
 });
 
-// GET /products/:productId - Get a specific product
-router.get('/products/:productId', async (req, res) => {
+// GET /products/:productId - Get a specific product (user-specific)
+router.get('/products/:productId', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;
-    const product = await mongoDBService.getProduct(productId);
+    const product = await mongoDBService.getProductByUser(req.userId, productId);
     
     res.json({
       success: true,
@@ -71,8 +72,8 @@ router.get('/products/:productId', async (req, res) => {
   }
 });
 
-// PUT /products/:productId/status - Update product status
-router.put('/products/:productId/status', async (req, res) => {
+// PUT /products/:productId/status - Update product status (user-specific)
+router.put('/products/:productId/status', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;
     const { status } = req.body;
@@ -91,7 +92,7 @@ router.put('/products/:productId/status', async (req, res) => {
       });
     }
     
-    const result = await mongoDBService.updateProductStatus(productId, status);
+    const result = await mongoDBService.updateProductStatusByUser(req.userId, productId, status);
     
     res.json(result);
     
@@ -104,8 +105,8 @@ router.put('/products/:productId/status', async (req, res) => {
   }
 });
 
-// PUT /products/:productId - Update entire product
-router.put('/products/:productId', async (req, res) => {
+// PUT /products/:productId - Update entire product (user-specific)
+router.put('/products/:productId', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;
     const updateData = req.body;
@@ -116,11 +117,12 @@ router.put('/products/:productId', async (req, res) => {
       });
     }
     
-    // Remove productId from update data to prevent conflicts
+    // Remove productId and userId from update data to prevent conflicts
     delete updateData.productId;
     delete updateData._id;
+    delete updateData.userId;
     
-    const result = await mongoDBService.updateProduct(productId, updateData);
+    const result = await mongoDBService.updateProductByUser(req.userId, productId, updateData);
     
     res.json(result);
     
@@ -133,11 +135,11 @@ router.put('/products/:productId', async (req, res) => {
   }
 });
 
-// DELETE /products/:productId - Delete a product
-router.delete('/products/:productId', async (req, res) => {
+// DELETE /products/:productId - Delete a product (user-specific)
+router.delete('/products/:productId', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;
-    const result = await mongoDBService.deleteProduct(productId);
+    const result = await mongoDBService.deleteProductByUser(req.userId, productId);
     
     res.json(result);
     
@@ -150,8 +152,8 @@ router.delete('/products/:productId', async (req, res) => {
   }
 });
 
-// POST /products - Create a new product (alternative to upload)
-router.post('/products', async (req, res) => {
+// POST /products - Create a new product (alternative to upload, user-specific)
+router.post('/products', authenticateToken, async (req, res) => {
   try {
     const productData = req.body;
     
@@ -160,6 +162,9 @@ router.post('/products', async (req, res) => {
         error: 'Product data with productId is required'
       });
     }
+    
+    // Ensure userId is set from authenticated user
+    productData.userId = req.userId;
     
     const result = await mongoDBService.uploadProduct(productData);
     

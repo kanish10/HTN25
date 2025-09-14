@@ -14,6 +14,7 @@ const mongoDBRoutes = require('./routes/mongoDBRoutes');
 const s3Routes = require('./routes/S3Routes');
 const shippingRoutes = require('./routes/shippingRoutes');
 const shopifyCarrierRoutes = require('./routes/shopifyCarrierRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -45,6 +46,7 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
+app.use('/api/auth', authRoutes);
 app.use('/api', uploadRoutes);
 app.use('/api', multiImageRoutes);
 app.use('/api', directUploadRoutes);
