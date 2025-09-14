@@ -1356,7 +1356,7 @@ const UploadPage = () => {
             <p className="label" style={{ marginBottom: '8px' }}>Optional: Add a Prompt</p>
             <textarea
               className="text-input"
-              placeholder="Describe your product or provide additional context... (e.g., 'This is a premium leather handbag for professional women')"
+              placeholder="Describe your product or provide additional context..."
               value={textPrompt}
               onChange={(e) => setTextPrompt(e.target.value)}
               disabled={status === "uploading" || status === "processing"}
