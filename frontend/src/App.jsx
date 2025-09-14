@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Upload, Wand2, Box, Zap, CheckCircle, Github, ExternalLink,
@@ -7,20 +7,14 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import ShippingCalculator from "./ShippingCalculator";
+import { login, logout, isAuthenticated, getUser, verifyToken } from "./auth";
 import "./App.css"; // keep your current CSS
 
 // ========= Config =========
 const API_URL = "http://localhost:3002";
 
-// ========= Demo auth + local storage =========
-const AUTH_KEY = "sb_auth";
+// ========= Local storage for uploads =========
 const UPLOADS_KEY = "sb_uploads";
-
-const getAuth = () => {
-  try { return JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch { return null; }
-};
-const setAuth = (obj) => localStorage.setItem(AUTH_KEY, JSON.stringify(obj));
-const clearAuth = () => localStorage.removeItem(AUTH_KEY);
 
 const getUploads = () => {
   try { return JSON.parse(localStorage.getItem(UPLOADS_KEY) || "[]"); } catch { return []; }
@@ -375,8 +369,15 @@ const Container = ({ className = "", children }) => (
 );
 
 // Top nav uses your existing classes (.nav, .nav-inner, etc.)
-const Nav = ({ onNav, route }) => {
-  const authed = Boolean(getAuth());
+const Nav = ({ onNav, route, user, onLogout }) => {
+  const authed = isAuthenticated();
+  
+  const handleLogout = async () => {
+    await logout();
+    onLogout();
+    onNav("login");
+  };
+
   return (
     <header className="nav">
       <Container className="nav-inner">
@@ -386,15 +387,17 @@ const Nav = ({ onNav, route }) => {
         </div>
         <nav className="nav-links">
           <button className={`link ${route === "home" ? "active" : ""}`} onClick={() => onNav("home")}>Home</button>
-          <button className={`link ${route === "upload" ? "active" : ""}`} onClick={() => onNav("upload")}>Upload</button>
-          <button className={`link ${route === "shipping" ? "active" : ""}`} onClick={() => onNav("shipping")}>
-            <Calculator size={14} /> Shipping
-          </button>
-          {authed ? (
+          {authed && (
             <>
+              <button className={`link ${route === "upload" ? "active" : ""}`} onClick={() => onNav("upload")}>Upload</button>
+              <button className={`link ${route === "shipping" ? "active" : ""}`} onClick={() => onNav("shipping")}>
+                <Calculator size={14} /> Shipping
+              </button>
               <button className={`link ${route === "dashboard" ? "active" : ""}`} onClick={() => onNav("dashboard")}>Dashboard</button>
-              <button className="link" onClick={() => { clearAuth(); onNav("login"); }}><LogOut size={14}/> Logout</button>
             </>
+          )}
+          {authed ? (
+            <button className="link" onClick={handleLogout}><LogOut size={14}/> Logout</button>
           ) : (
             <button className={`link ${route === "login" ? "active" : ""}`} onClick={() => onNav("login")}>Login</button>
           )}
@@ -775,12 +778,27 @@ const LoginPage = ({ onLoggedIn }) => {
   const [name, setName] = useState("");
   const [store, setStore] = useState("");
   const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (!name || !store) return alert("Enter your name and Shopify store domain");
-    setAuth({ name, email, storeDomain: store, loggedInAt: Date.now() });
-    onLoggedIn();
+    if (!name || !store) {
+      setError("Enter your name and Shopify store domain");
+      return;
+    }
+    
+    setLoading(true);
+    setError("");
+    
+    try {
+      await login({ name, email, storeDomain: store });
+      onLoggedIn();
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -789,10 +807,17 @@ const LoginPage = ({ onLoggedIn }) => {
         <div className="card">
           <p className="label">Login</p>
           <form onSubmit={submit} className="dropzone" style={{ gap: 10 }}>
-            <input className="text-input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
-            <input className="text-input" placeholder="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input className="text-input" placeholder="Shopify store (e.g. my-shop.myshopify.com)" value={store} onChange={(e) => setStore(e.target.value)} />
-            <button className="btn primary" type="submit"><LogIn size={16}/> Continue</button>
+            {error && (
+              <div className="result" style={{borderColor: '#ef4444', background: '#fef2f2', marginBottom: '10px'}}>
+                <p style={{color: '#dc2626', margin: 0, fontSize: '14px'}}>{error}</p>
+              </div>
+            )}
+            <input className="text-input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} disabled={loading} />
+            <input className="text-input" placeholder="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
+            <input className="text-input" placeholder="Shopify store (e.g. my-shop.myshopify.com)" value={store} onChange={(e) => setStore(e.target.value)} disabled={loading} />
+            <button className="btn primary" type="submit" disabled={loading}>
+              <LogIn size={16}/> {loading ? "Logging in..." : "Continue"}
+            </button>
             <p className="muted" style={{ marginTop: 4 }}>Used to personalize your dashboard.</p>
           </form>
         </div>
@@ -812,8 +837,7 @@ const LoginPage = ({ onLoggedIn }) => {
   );
 };
 
-const DashboardPage = ({ onLogout }) => {
-  const auth = getAuth();
+const DashboardPage = ({ user, onLogout }) => {
   const items = getUploads();
   const timeSavedMin = items.length * 30;       // demo assumption
   const aiCost = (items.length * 0.12).toFixed(2);
@@ -824,9 +848,9 @@ const DashboardPage = ({ onLogout }) => {
         <div className="card">
           <p className="label">Account</p>
           <div className="dropzone" style={{ alignItems: "flex-start", textAlign: "left" }}>
-            <p><b>Name:</b> {auth?.name || "—"}</p>
-            <p><b>Store:</b> {auth?.storeDomain || "—"}</p>
-            <p><b>Logged in:</b> {auth?.loggedInAt ? new Date(auth.loggedInAt).toLocaleString() : "—"}</p>
+            <p><b>Name:</b> {user?.name || "—"}</p>
+            <p><b>Store:</b> {user?.storeDomain || "—"}</p>
+            <p><b>Logged in:</b> {user?.loggedInAt ? new Date(user.loggedInAt).toLocaleString() : "—"}</p>
             <div className="row gap">
               <button className="btn" onClick={onLogout}><LogOut size={16}/> Log out</button>
               <a className="btn" href="#upload"><Upload size={16}/> Go to Uploader</a>
@@ -858,7 +882,7 @@ const DashboardPage = ({ onLogout }) => {
                       </div>
                     </div>
                     {p.shopifyHandle ? (
-                      <a className="btn" href={`https://${auth?.storeDomain}/products/${p.shopifyHandle}`} target="_blank" rel="noreferrer">View</a>
+                      <a className="btn" href={`https://${user?.storeDomain}/products/${p.shopifyHandle}`} target="_blank" rel="noreferrer">View</a>
                     ) : null}
                   </div>
                 ))}
@@ -874,16 +898,62 @@ const DashboardPage = ({ onLogout }) => {
 // ========= Root =========
 export default function App() {
   const { route, nav } = useHashRoute("home");
-  const authed = Boolean(getAuth());
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const authed = isAuthenticated();
+
+  // Check authentication on app load
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const userData = await verifyToken();
+        setUser(userData);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Redirect to login if not authenticated and trying to access protected routes
+  useEffect(() => {
+    if (!authLoading && !authed && ['upload', 'dashboard', 'shipping'].includes(route)) {
+      nav('login');
+    }
+  }, [route, authed, authLoading, nav]);
+
+  const handleLogin = () => {
+    const userData = getUser();
+    setUser(userData);
+    nav("dashboard");
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+  };
+
+  if (authLoading) {
+    return (
+      <div className="app">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <div>Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
-      <Nav onNav={nav} route={route} />
-      {route === "home" && <HomePage onStart={() => nav("upload")} />}
-      {route === "upload" && <UploadPage />}
-      {route === "shipping" && <ShippingCalculator />}
-      {route === "login" && <LoginPage onLoggedIn={() => nav("dashboard")} />}
-      {route === "dashboard" && (authed ? <DashboardPage onLogout={() => { clearAuth(); nav("login"); }} /> : <LoginPage onLoggedIn={() => nav("dashboard")} />)}
+      <Nav onNav={nav} route={route} user={user} onLogout={handleLogout} />
+      {route === "home" && <HomePage onStart={() => authed ? nav("upload") : nav("login")} />}
+      {route === "upload" && (authed ? <UploadPage /> : <LoginPage onLoggedIn={handleLogin} />)}
+      {route === "shipping" && (authed ? <ShippingCalculator /> : <LoginPage onLoggedIn={handleLogin} />)}
+      {route === "login" && <LoginPage onLoggedIn={handleLogin} />}
+      {route === "dashboard" && (authed ? <DashboardPage user={user} onLogout={handleLogout} /> : <LoginPage onLoggedIn={handleLogin} />)}
       <Footer />
     </div>
   );

@@ -3,6 +3,7 @@ const S3Service = require('../services/s3Service');
 const GeminiService = require('../services/geminiService');
 const DataFormatter = require('../utils/dataFormatter');
 const MongoDBService = require('../services/mongoDBService');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -11,8 +12,8 @@ const s3Service = new S3Service();
 const geminiService = new GeminiService();
 const mongoDBService = new MongoDBService();
 
-// POST /upload - Generate presigned URL for single image upload (simplified)
-router.post('/upload', async (req, res) => {
+// POST /upload - Generate presigned URL for single image upload (requires authentication)
+router.post('/upload', authenticateToken, async (req, res) => {
   try {
     const { fileName, fileType } = req.body;
 
@@ -46,8 +47,8 @@ router.post('/upload', async (req, res) => {
   }
 });
 
-// POST /analyze/:productId - Analyze uploaded images with Gemini and select best
-router.post('/analyze/:productId', async (req, res) => {
+// POST /analyze/:productId - Analyze uploaded images with Gemini and select best (requires authentication)
+router.post('/analyze/:productId', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;
     let { imageUrls } = req.body; // Array of image URLs
@@ -94,8 +95,9 @@ router.post('/analyze/:productId', async (req, res) => {
       bestAnalysis = await geminiService.analyzeMultipleImages(imageUrls);
     }
 
-    // Step 3: Format data for MongoDB
+    // Step 3: Format data for MongoDB with userId
     const mongoDBData = DataFormatter.formatForDynamoDB(
+      req.userId,
       productId,
       bestAnalysis.selectedImageUrl,
       bestAnalysis.extractedData,
@@ -131,14 +133,14 @@ router.post('/analyze/:productId', async (req, res) => {
   }
 });
 
-// GET /status/:productId - Get analysis status
-router.get('/status/:productId', async (req, res) => {
+// GET /status/:productId - Get analysis status (requires authentication)
+router.get('/status/:productId', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;
     
-    // Query MongoDB for actual status
+    // Query MongoDB for actual status (user-specific)
     try {
-      const product = await mongoDBService.getProduct(productId);
+      const product = await mongoDBService.getProductByUser(req.userId, productId);
       res.json({
         productId,
         status: product.status,
