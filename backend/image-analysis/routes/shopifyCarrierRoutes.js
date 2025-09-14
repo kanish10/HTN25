@@ -92,21 +92,28 @@ router.post('/shopify/shipping-rates', async (req, res) => {
       // Calculate total item count including quantities
       const totalItemCount = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
+      console.log(`📋 Description Debug: ${totalBoxes} boxes, ${shipments.length} shipments, ${totalItemCount} items`);
+
       if (totalBoxes === 1 && shipments.length > 0) {
         const shipment = shipments[0];
         const boxName = getBoxNameFromId(shipment.boxId);
         const boxLabel = getBoxSizeLabel(boxName);
         const utilization = Math.round(shipment.fillPercent || 75);
+        console.log(`📦 Single box: ${shipment.boxId} -> ${boxName} -> ${boxLabel}`);
         return `${boxLabel} (${utilization}% full) • ${totalItemCount} item${totalItemCount > 1 ? 's' : ''}`;
       } else if (shipments.length > 0) {
         const boxTypes = shipments.map(s => {
           const boxName = getBoxNameFromId(s.boxId);
-          return getBoxSizeLabel(boxName);
+          const boxLabel = getBoxSizeLabel(boxName);
+          console.log(`📦 Multi box: ${s.boxId} -> ${boxName} -> ${boxLabel}`);
+          return boxLabel;
         }).join(' + ');
         return `${boxTypes} • ${totalItemCount} items optimally packed`;
       } else {
-        // Fallback for when box details aren't available
-        return `${totalBoxes} optimized box${totalBoxes > 1 ? 'es' : ''} • ${totalItemCount} items`;
+        // Improved fallback with better error handling
+        const fallbackBoxes = Math.max(1, totalBoxes || 1);
+        console.warn(`⚠️ Fallback description: ${fallbackBoxes} boxes for ${totalItemCount} items`);
+        return `${fallbackBoxes} optimized box${fallbackBoxes > 1 ? 'es' : ''} • ${totalItemCount} items`;
       }
     };
 
@@ -119,8 +126,10 @@ router.post('/shopify/shipping-rates', async (req, res) => {
         'small-box': 'Small Box',
         'medium-box': 'Medium Box',
         'large-box': 'Large Box',
-        'xl-box': 'Extra Large Box'
+        'xl-box': 'Extra Large Box',
+        'xlarge': 'Extra Large Box' // Fallback for old ID format
       };
+      console.log(`🔍 Box ID lookup: '${boxId}' -> '${boxMap[boxId] || 'Box (unmapped)'}'`);
       return boxMap[boxId] || 'Box';
     };
 

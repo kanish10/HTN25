@@ -357,9 +357,6 @@ const AnalysisResults = ({ result, processingTime }) => {
            publishStatus === "success" ? "Published ✓" :
            "Publish to Shopify"}
         </button>
-        <button className="btn" onClick={() => console.log('Full analysis:', result)}>
-          Export Data
-        </button>
       </div>
     </div>
   );
