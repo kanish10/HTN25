@@ -747,10 +747,8 @@ const Nav = ({ onNav, route, user, onLogout }) => {
           <button className={`link ${route === "checkout" ? "active" : ""}`} onClick={() => onNav("checkout")}>
             <Package size={14} /> Checkout Demo
           </button> */}
-          {authed ? (
-            <>
-              <button className={`link ${route === "dashboard" ? "active" : ""}`} onClick={() => onNav("dashboard")}>Dashboard</button>
-            </>
+          {authed && (
+            <button className={`link ${route === "dashboard" ? "active" : ""}`} onClick={() => onNav("dashboard")}>Dashboard</button>
           )}
           {authed ? (
             <button className="link" onClick={handleLogout}><LogOut size={14}/> Logout</button>
