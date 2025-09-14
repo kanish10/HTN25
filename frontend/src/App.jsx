@@ -1190,7 +1190,7 @@ const UploadPage = () => {
                           textAlign: 'center',
                           fontWeight: '600'
                         }}>
-                          AI Selected
+                          Selected
                         </div>
                       )}
                     </div>
