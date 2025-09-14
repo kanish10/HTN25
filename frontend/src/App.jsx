@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Upload, Wand2, Box, Zap, CheckCircle, Github, ExternalLink,
+  Upload, Wand2, Box, Zap, CheckCircle, ExternalLink,
   AlertCircle, ChevronDown, ChevronUp, Package, Tag, DollarSign, Truck,
   LogIn, LogOut, User, Calculator
 } from "lucide-react";
@@ -201,112 +201,110 @@ const AnalysisResults = ({ result, processingTime }) => {
             )}
 
             {activeTab === "content" && (
-              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%', minHeight: '280px' }}>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Generated Title</h4>
-                  <p style={{ margin: 0, fontWeight: '600', fontSize: '16px' }}>{result.generatedContent.title}</p>
+              <div style={{ display: 'grid', gap: '16px', width: '100%', maxWidth: '100%' }}>
+                <div className="card" style={{ padding: '16px' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>Generated Title</h4>
+                  <p style={{ margin: 0, fontWeight: '600', fontSize: '18px', color: 'var(--brand)', lineHeight: '1.3' }}>{result.generatedContent.title}</p>
                 </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Description</h4>
-                  <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.5' }}>{result.generatedContent.description}</p>
-                </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Bullet Points</h4>
-                  <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                    {result.generatedContent.bulletPoints.map((point, i) => (
-                      <li key={i} style={{ fontSize: '14px', marginBottom: '4px' }}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>SEO Tags</h4>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {result.generatedContent.seoTags.map((tag, i) => (
-                      <span key={i} className="chip" style={{ fontSize: '12px', background: 'var(--chip)' }}>{tag}</span>
-                    ))}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="card" style={{ padding: '16px' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>Description</h4>
+                    <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.6', color: '#374151' }}>{result.generatedContent.description}</p>
+                  </div>
+
+                  <div className="card" style={{ padding: '16px' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>Key Features</h4>
+                    <ul style={{ margin: 0, paddingLeft: '18px', listStyle: 'disc' }}>
+                      {result.generatedContent.bulletPoints.slice(0, 4).map((point, i) => (
+                        <li key={i} style={{ fontSize: '14px', marginBottom: '6px', lineHeight: '1.4', color: '#374151' }}>{point}</li>
+                      ))}
+                    </ul>
+                    {result.generatedContent.bulletPoints.length > 4 && (
+                      <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
+                        +{result.generatedContent.bulletPoints.length - 4} more features
+                      </div>
+                    )}
                   </div>
                 </div>
-                {result.generatedContent.abVariants && (
-                  <div className="card" style={{ padding: '12px' }}>
-                    <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>A/B Test Variants</h4>
-                    <div style={{ display: 'grid', gap: '8px' }}>
-                      <div><strong>Variant A:</strong> {result.generatedContent.abVariants.titleA}</div>
-                      <div><strong>Variant B:</strong> {result.generatedContent.abVariants.titleB}</div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: result.generatedContent.abVariants ? '2fr 1fr' : '1fr', gap: '16px' }}>
+                  <div className="card" style={{ padding: '16px' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>SEO Tags</h4>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {result.generatedContent.seoTags.map((tag, i) => (
+                        <span key={i} className="chip" style={{ fontSize: '12px', background: 'var(--chip)', padding: '4px 8px' }}>{tag}</span>
+                      ))}
                     </div>
                   </div>
-                )}
+
+                  {result.generatedContent.abVariants && (
+                    <div className="card" style={{ padding: '16px' }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>A/B Test Variants</h4>
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
+                          <div style={{ fontWeight: '600', color: '#059669', marginBottom: '2px' }}>Variant A:</div>
+                          <div style={{ color: '#374151' }}>{result.generatedContent.abVariants.titleA}</div>
+                        </div>
+                        <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
+                          <div style={{ fontWeight: '600', color: '#0ea5e9', marginBottom: '2px' }}>Variant B:</div>
+                          <div style={{ color: '#374151' }}>{result.generatedContent.abVariants.titleB}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
             {activeTab === "shipping" && (
-              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%', minHeight: '280px' }}>
-                <div className="card" style={{ padding: '12px', background: '#f0f9ff' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Recommended Shipping</h4>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'grid', gap: '16px', width: '100%', maxWidth: '100%' }}>
+                <div className="card" style={{ padding: '16px', background: '#f0f9ff' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>Recommended Shipping</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '16px' }}>
                     <div>
-                      <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--brand)' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--brand)' }}>
                         {result.shippingData.singleItem.recommendedBox}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Box Type</div>
+                      <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>Optimal Box Type</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '18px', fontWeight: '600', color: '#059669' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#059669' }}>
                         ${result.shippingData.singleItem.shippingCost}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Shipping Cost</div>
+                      <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>Shipping Cost</div>
                     </div>
                   </div>
-                  <div style={{ marginTop: '8px', padding: '8px', background: '#dcfce7', borderRadius: '6px' }}>
+                  <div style={{ padding: '12px', background: '#dcfce7', borderRadius: '8px', borderLeft: '4px solid #22c55e' }}>
                     <div style={{ fontSize: '14px', color: '#166534', fontWeight: '600' }}>
                       {result.shippingData.savings.description}
                     </div>
                   </div>
                 </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Bulk Shipping Options</h4>
-                  {result.shippingData.bulkOrders?.map((bulk, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < result.shippingData.bulkOrders.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                      <span>{bulk.quantity} items - {bulk.recommendedBox}</span>
-                      <span><strong>${bulk.costPerItem}/item</strong> (${bulk.totalCost} total)</span>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
 
             {activeTab === "pricing" && (
-              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%', minHeight: '280px' }}>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Suggested Price Range</h4>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div>
-                      <div style={{ fontSize: '24px', fontWeight: '600', color: '#059669' }}>
+              <div style={{ display: 'grid', gap: '16px', width: '100%', maxWidth: '100%' }}>
+                <div className="card" style={{ padding: '20px', background: 'linear-gradient(135deg, #f0fdf4 0%, #f0f9ff 100%)' }}>
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700', color: '#1f2937' }}>AI-Suggested Price Range</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#059669', lineHeight: '1' }}>
                         ${result.extractedData.suggestedPrice.min}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Minimum</div>
+                      <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px', fontWeight: '500' }}>Minimum Price</div>
                     </div>
-                    <div style={{ fontSize: '20px', color: '#6b7280' }}>→</div>
-                    <div>
-                      <div style={{ fontSize: '24px', fontWeight: '600', color: '#059669' }}>
+                    <div style={{ fontSize: '24px', color: '#d1d5db', fontWeight: '300' }}>—</div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#059669', lineHeight: '1' }}>
                         ${result.extractedData.suggestedPrice.max}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Maximum</div>
+                      <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px', fontWeight: '500' }}>Maximum Price</div>
                     </div>
                   </div>
-                </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>AI Processing Costs</h4>
-                  <div style={{ display: 'grid', gap: '8px' }}>
-                    {result.generatedContent.aiCosts.breakdown.map((cost, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                        <span>{cost.service} - {cost.operation}</span>
-                        <span><strong>${cost.cost.toFixed(3)}</strong></span>
-                      </div>
-                    ))}
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: '600' }}>
-                      <span>Total AI Cost</span>
-                      <span style={{ color: 'var(--brand)' }}>${result.generatedContent.aiCosts.total}</span>
-                    </div>
+                  <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: '#6b7280', fontStyle: 'italic' }}>
+                    Based on market analysis and product characteristics
                   </div>
                 </div>
               </div>
@@ -407,7 +405,7 @@ const Nav = ({ onNav, route }) => {
             <button className={`link ${route === "login" ? "active" : ""}`} onClick={() => onNav("login")}>Login</button>
           )}
           <a className="pill" href="https://github.com/kanish10/HTN25" target="_blank" rel="noreferrer">
-            <Github size={14} /> Repo
+            <ExternalLink size={14} /> Repo
           </a>
         </nav>
       </Container>
