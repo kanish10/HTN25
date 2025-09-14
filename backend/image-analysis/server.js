@@ -15,6 +15,7 @@ const s3Routes = require('./routes/S3Routes');
 const shippingRoutes = require('./routes/shippingRoutes');
 const shopifyCarrierRoutes = require('./routes/shopifyCarrierRoutes');
 const authRoutes = require('./routes/authRoutes');
+const imageProxyRoutes = require('./routes/imageProxyRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -55,6 +56,7 @@ app.use('/api/db', mongoDBRoutes);
 app.use('/api/s3', s3Routes);
 app.use('/api', shippingRoutes);
 app.use('/api', shopifyCarrierRoutes);
+app.use('/api/images', imageProxyRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

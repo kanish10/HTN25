@@ -14,6 +14,74 @@ import "./App.css"; // keep your current CSS
 // ========= Config =========
 const API_URL = "http://localhost:3002";
 
+// ========= Image Loading Utilities =========
+const ImageWithFallback = ({ src, alt, className, style, onError, ...props }) => {
+  const [currentSrc, setCurrentSrc] = useState(src);
+  const [hasError, setHasError] = useState(false);
+
+  // Reset when src changes
+  useEffect(() => {
+    setCurrentSrc(src);
+    setHasError(false);
+  }, [src]);
+
+  const handleError = (e) => {
+    if (!hasError && src && src.includes('s3.')) {
+      // If S3 direct access fails, try backend proxy
+      const s3Key = extractS3KeyFromUrl(src);
+      if (s3Key) {
+        const proxyUrl = `${API_URL}/api/images/s3/${s3Key}`;
+        console.log(`🔄 S3 direct access failed, trying proxy: ${proxyUrl}`);
+        setCurrentSrc(proxyUrl);
+        setHasError(true);
+        return;
+      }
+    }
+    
+    // Call original onError if provided
+    if (onError) {
+      onError(e);
+    }
+  };
+
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      className={className}
+      style={style}
+      onError={handleError}
+      {...props}
+    />
+  );
+};
+
+// Extract S3 key from S3 URL
+const extractS3KeyFromUrl = (url) => {
+  if (!url || !url.includes('s3.')) return null;
+  
+  try {
+    // Handle both formats:
+    // https://bucket.s3.region.amazonaws.com/key
+    // https://s3.region.amazonaws.com/bucket/key
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter(part => part);
+    
+    if (urlObj.hostname.includes('.s3.')) {
+      // Format: https://bucket.s3.region.amazonaws.com/key
+      return pathParts.join('/');
+    } else if (urlObj.hostname.startsWith('s3.')) {
+      // Format: https://s3.region.amazonaws.com/bucket/key
+      return pathParts.slice(1).join('/'); // Skip bucket name
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('Failed to extract S3 key from URL:', url, error);
+    return null;
+  }
+};
+
 // ========= Local storage for uploads =========
 const UPLOADS_KEY = "sb_uploads";
 
@@ -476,7 +544,7 @@ const AnalysisResults = ({ result, processingTime }) => {
                   <div className="card" style={{ padding: '12px' }}>
                     <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Selected Product Image</h4>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
-                      <img
+                      <ImageWithFallback
                         src={result.imageUrl}
                         alt="Selected product"
                         style={{
@@ -996,21 +1064,26 @@ const UploadPage = () => {
 
       if (response.data.success) {
         const payload = response.data.data;
+        
+        // Use the actual selected image URL from the server response (S3 URL)
+        const selectedImageUrl = payload.imageUrl || payload.imageAnalysis?.selectedImage?.url;
+        const selectedImageIndex = payload.imageAnalysis?.selectedImage?.index || 0;
+
+        // Always prioritize S3 URL over local blob URLs
+        const imageToDisplay = selectedImageUrl || previews[selectedImageIndex] || previews[0];
+        
+        console.log('🖼️ Image URL from server:', selectedImageUrl);
+        console.log('🖼️ Final image to display:', imageToDisplay);
+        
         setAnalysisResult({
           ...payload,
+          imageUrl: selectedImageUrl, // Ensure we use the S3 URL in analysis results
           multiImageAnalysis: response.data.data.imageAnalysis
         });
         setStatus("ready");
 
-        // Use the actual selected image URL from the server response
-        const selectedImageUrl = payload.imageUrl || payload.imageAnalysis?.selectedImage?.url;
-        const selectedImageIndex = payload.imageAnalysis?.selectedImage?.index || 0;
-
-        // Use server image URL when available
-        const imageToDisplay = selectedImageUrl || (previews[selectedImageIndex] || previews[0]);
-
         addUpload({
-          previewUrl: imageToDisplay,
+          previewUrl: selectedImageUrl || imageToDisplay, // Always prefer S3 URL for storage
           title: payload.generatedContent?.title || "Untitled product",
           box: payload.shippingData?.singleItem?.recommendedBox || "—",
           createdAt: Date.now(),
@@ -1018,7 +1091,8 @@ const UploadPage = () => {
           multiImage: true,
           totalImages: files.length,
           selectedImageIndex,
-          selectedImageUrl
+          selectedImageUrl,
+          s3ImageUrl: selectedImageUrl // Store S3 URL separately for reference
         });
       } else {
         throw new Error(response.data.details || 'Analysis failed');
@@ -1068,14 +1142,60 @@ const UploadPage = () => {
           <div className="dropzone">
             {previews.length > 0 ? (
               <div className="image-grid-container">
-                {previews.map((preview, index) => (
-                  <div key={index} className="image-grid-item">
-                    <img src={preview} alt={`preview ${index + 1}`} className="image-grid-img" />
-                    <div className="image-grid-badge">
-                      {index + 1}
+                {previews.map((preview, index) => {
+                  // Check if this is the selected image after analysis
+                  const isSelected = analysisResult && 
+                    analysisResult.imageAnalysis?.selectedImage?.index === index;
+                  const s3ImageUrl = analysisResult?.imageUrl;
+                  
+                  return (
+                    <div 
+                      key={index} 
+                      className={`image-grid-item ${isSelected ? 'selected' : ''}`}
+                      style={{
+                        border: isSelected ? '3px solid #10b981' : '1px solid #e5e7eb',
+                        boxShadow: isSelected ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
+                      }}
+                    >
+                      <ImageWithFallback 
+                        src={isSelected && s3ImageUrl ? s3ImageUrl : preview} 
+                        alt={`preview ${index + 1}`} 
+                        className="image-grid-img" 
+                        onError={(e) => {
+                          // Fallback to local preview if S3 URL fails
+                          if (e.target.src !== preview) {
+                            console.warn('S3 image failed to load, falling back to local preview');
+                            e.target.src = preview;
+                          }
+                        }}
+                      />
+                      <div className={`image-grid-badge ${isSelected ? 'selected' : ''}`}
+                           style={{
+                             background: isSelected ? '#10b981' : '#6b7280',
+                             color: 'white'
+                           }}>
+                        {isSelected ? '✓' : index + 1}
+                      </div>
+                      {isSelected && (
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '4px',
+                          left: '4px',
+                          right: '4px',
+                          background: 'rgba(16, 185, 129, 0.9)',
+                          color: 'white',
+                          fontSize: '10px',
+                          padding: '2px 4px',
+                          borderRadius: '4px',
+                          textAlign: 'center',
+                          fontWeight: '600'
+                        }}>
+                          AI Selected
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="dz-empty">
@@ -1320,7 +1440,7 @@ const DashboardPage = ({ user, onLogout }) => {
               <div className="list-grid">
                 {items.map((p, idx) => (
                   <div key={idx} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <img src={p.previewUrl} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8 }} />
+                    <ImageWithFallback src={p.previewUrl} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8 }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600 }}>{p.title || "Untitled product"}</div>
                       <div className="muted" style={{ fontSize: 12 }}>
