@@ -375,6 +375,63 @@ class ShopifyService {
       }
     }
   }
+
+  /**
+   * Generic method to make requests to Shopify API
+   * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
+   * @param {string} endpoint - API endpoint (e.g., 'products.json')
+   * @param {Object} data - Request data for POST/PUT
+   * @returns {Promise<Object>} Response data
+   */
+  async makeRequest(method, endpoint, data = null) {
+    if (!this.enabled || !this.shopify) {
+      throw new Error('Shopify service is not configured. Please check your SHOPIFY_SHOP_NAME and SHOPIFY_ACCESS_TOKEN environment variables.');
+    }
+
+    try {
+      const parts = endpoint.split('.');
+      const resource = parts[0];
+      const action = parts[1] || null;
+
+      // Handle different endpoint formats
+      if (method === 'GET') {
+        if (resource === 'carrier_services') {
+          return await this.shopify.carrierService.list();
+        } else if (action) {
+          return await this.shopify[resource][action]();
+        } else {
+          return await this.shopify[resource].list();
+        }
+      } else if (method === 'POST') {
+        if (resource === 'carrier_services') {
+          return await this.shopify.carrierService.create(data);
+        } else if (action) {
+          return await this.shopify[resource][action](data);
+        } else {
+          return await this.shopify[resource].create(data);
+        }
+      } else if (method === 'PUT') {
+        const [resourceName, id] = resource.split('/');
+        if (resourceName === 'carrier_services') {
+          return await this.shopify.carrierService.update(parseInt(id), data);
+        } else {
+          return await this.shopify[resourceName].update(parseInt(id), data);
+        }
+      } else if (method === 'DELETE') {
+        const [resourceName, id] = resource.split('/');
+        if (resourceName === 'carrier_services') {
+          return await this.shopify.carrierService.delete(parseInt(id));
+        } else {
+          return await this.shopify[resourceName].delete(parseInt(id));
+        }
+      }
+
+      throw new Error(`Unsupported method: ${method}`);
+    } catch (error) {
+      console.error(`❌ Shopify ${method} ${endpoint} error:`, error);
+      throw error;
+    }
+  }
 }
 
 module.exports = ShopifyService;

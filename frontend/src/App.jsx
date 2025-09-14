@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import ShippingCalculator from "./ShippingCalculator";
+import ShippingOptimizer from "./ShippingOptimizer";
 import "./App.css"; // keep your current CSS
 
 // ========= Config =========
@@ -390,6 +391,9 @@ const Nav = ({ onNav, route }) => {
           <button className={`link ${route === "shipping" ? "active" : ""}`} onClick={() => onNav("shipping")}>
             <Calculator size={14} /> Shipping
           </button>
+          <button className={`link ${route === "checkout" ? "active" : ""}`} onClick={() => onNav("checkout")}>
+            <Package size={14} /> Checkout Demo
+          </button>
           {authed ? (
             <>
               <button className={`link ${route === "dashboard" ? "active" : ""}`} onClick={() => onNav("dashboard")}>Dashboard</button>
@@ -470,33 +474,16 @@ const HomePage = ({ onStart }) => (
 
 // Upload page: keep your look; when analysis finishes, we save to dashboard
 const UploadPage = () => {
-  const inputRef = useRef(null);
   const multiInputRef = useRef(null);
-  const [file, setFile] = useState(null);
-  const [files, setFiles] = useState([]); // For multiple images
-  const [uploadMode, setUploadMode] = useState("single"); // single | multiple
+  const [files, setFiles] = useState([]); // For images
   const [status, setStatus] = useState("idle"); // idle | uploading | processing | ready | error
-  const [preview, setPreview] = useState(null);
-  const [previews, setPreviews] = useState([]); // For multiple previews
+  const [previews, setPreviews] = useState([]); // For image previews
   const [analysisResult, setAnalysisResult] = useState(null);
   const [error, setError] = useState(null);
   const [processingTime, setProcessingTime] = useState(0);
 
   const handleChoose = () => {
-    if (uploadMode === "single") {
-      inputRef.current?.click();
-    } else {
-      multiInputRef.current?.click();
-    }
-  };
-
-  const onFile = (f) => {
-    if (!f) return;
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
-    setError(null);
-    setAnalysisResult(null);
-    setUploadMode("single");
+    multiInputRef.current?.click();
   };
 
   const onMultipleFiles = (fileList) => {
@@ -511,25 +498,6 @@ const UploadPage = () => {
     setPreviews(filesArray.map(f => URL.createObjectURL(f)));
     setError(null);
     setAnalysisResult(null);
-    setUploadMode("multiple");
-    setFile(null);
-    setPreview(null);
-  };
-
-  const switchToMultiple = () => {
-    setUploadMode("multiple");
-    setFile(null);
-    setPreview(null);
-    setError(null);
-    setAnalysisResult(null);
-  };
-
-  const switchToSingle = () => {
-    setUploadMode("single");
-    setFiles([]);
-    setPreviews([]);
-    setError(null);
-    setAnalysisResult(null);
   };
 
   const fileToBase64 = (file) => {
@@ -542,91 +510,58 @@ const UploadPage = () => {
   };
 
   const handleUpload = async () => {
-    if (uploadMode === "single" && !file) return;
-    if (uploadMode === "multiple" && files.length === 0) return;
+    if (files.length === 0) return;
 
     const startTime = Date.now();
     setStatus("uploading");
     setError(null);
 
     try {
-      if (uploadMode === "single") {
-        // Original single image upload flow
-        const formData = new FormData();
-        formData.append('image', file);
+      setStatus("processing");
 
-        setStatus("processing");
+      const images = await Promise.all(
+        files.map(async (file) => ({
+          fileName: file.name,
+          fileType: file.type,
+          imageData: await fileToBase64(file)
+        }))
+      );
 
-        const response = await axios.post(`${API_URL}/api/direct-upload`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000
+      const response = await axios.post(`${API_URL}/api/upload-more`, {
+        images
+      }, { timeout: 120000 }); // Longer timeout for multiple images
+
+      const ms = Date.now() - startTime;
+      setProcessingTime(ms);
+
+      if (response.data.success) {
+        const payload = response.data.data;
+        setAnalysisResult({
+          ...payload,
+          multiImageAnalysis: response.data.data.imageAnalysis
         });
+        setStatus("ready");
 
-        const ms = Date.now() - startTime;
-        setProcessingTime(ms);
+        // Use the actual selected image URL from the server response
+        const selectedImageUrl = payload.imageUrl || payload.imageAnalysis?.selectedImage?.url;
+        const selectedImageIndex = payload.imageAnalysis?.selectedImage?.index || 0;
 
-        if (response.data.success) {
-          const payload = response.data.data;
-          setAnalysisResult(payload);
-          setStatus("ready");
+        // Use server image URL when available
+        const imageToDisplay = selectedImageUrl || (previews[selectedImageIndex] || previews[0]);
 
-          addUpload({
-            previewUrl: preview,
-            title: payload.generatedContent?.title || "Untitled product",
-            box: payload.shippingData?.singleItem?.recommendedBox || "—",
-            createdAt: Date.now(),
-            shopifyHandle: null
-          });
-        } else {
-          throw new Error(response.data.details || 'Analysis failed');
-        }
+        addUpload({
+          previewUrl: imageToDisplay,
+          title: payload.generatedContent?.title || "Untitled product",
+          box: payload.shippingData?.singleItem?.recommendedBox || "—",
+          createdAt: Date.now(),
+          shopifyHandle: null,
+          multiImage: true,
+          totalImages: files.length,
+          selectedImageIndex,
+          selectedImageUrl
+        });
       } else {
-        // New multiple image upload flow
-        setStatus("processing");
-
-        const images = await Promise.all(
-          files.map(async (file) => ({
-            fileName: file.name,
-            fileType: file.type,
-            imageData: await fileToBase64(file)
-          }))
-        );
-
-        const response = await axios.post(`${API_URL}/api/upload-more`, {
-          images
-        }, { timeout: 120000 }); // Longer timeout for multiple images
-
-        const ms = Date.now() - startTime;
-        setProcessingTime(ms);
-
-        if (response.data.success) {
-          const payload = response.data.data;
-          setAnalysisResult({
-            ...payload,
-            multiImageAnalysis: response.data.data.imageAnalysis
-          });
-          setStatus("ready");
-
-          // Use the actual selected image URL from the server response
-          const selectedImageUrl = payload.imageUrl || payload.imageAnalysis?.selectedImage?.url;
-          const selectedImageIndex = payload.imageAnalysis?.selectedImage?.index || 0;
-
-          // Use server image URL when available
-          const imageToDisplay = selectedImageUrl || (previews[selectedImageIndex] || previews[0]);
-
-          addUpload({
-            previewUrl: imageToDisplay,
-            title: payload.generatedContent?.title || "Untitled product",
-            box: payload.shippingData?.singleItem?.recommendedBox || "—",
-            createdAt: Date.now(),
-            shopifyHandle: null,
-            multiImage: true,
-            totalImages: files.length,
-            selectedImageIndex,
-            selectedImageUrl
-          });
-        } else {
-          throw new Error(response.data.details || 'Analysis failed');
-        }
+        throw new Error(response.data.details || 'Analysis failed');
       }
     } catch (err) {
       console.error('Upload/Analysis Error:', err);
@@ -645,80 +580,47 @@ const UploadPage = () => {
       <div className="cols">
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <p className="label">1) Upload product image(s)</p>
-            <div className="row gap" style={{ fontSize: '12px' }}>
-              <button
-                className={`btn ${uploadMode === "single" ? "primary" : ""}`}
-                onClick={switchToSingle}
-                style={{ padding: '4px 8px' }}
-              >
-                Single Image
-              </button>
-              <button
-                className={`btn ${uploadMode === "multiple" ? "primary" : ""}`}
-                onClick={switchToMultiple}
-                style={{ padding: '4px 8px' }}
-              >
-                Multiple Images
-              </button>
-            </div>
+            <p className="label">1) Upload product images</p>
           </div>
 
           <div className="dropzone">
-            {uploadMode === "single" ? (
-              // Single image UI
-              <>
-                {preview ? <img src={preview} alt="preview" className="preview" /> : (
-                  <div className="dz-empty">
-                    <Upload size={28} />
-                    <p className="muted">Drag & drop or choose a JPG/PNG (under 5MB)</p>
+            {previews.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+                {previews.map((preview, index) => (
+                  <div key={index} style={{ position: 'relative' }}>
+                    <img src={preview} alt={`preview ${index + 1}`} style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px' }} />
+                    <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', borderRadius: '12px', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
+                      {index + 1}
+                    </div>
                   </div>
-                )}
-                <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-              </>
+                ))}
+              </div>
             ) : (
-              // Multiple images UI
-              <>
-                {previews.length > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px', marginBottom: '12px' }}>
-                    {previews.map((preview, index) => (
-                      <div key={index} style={{ position: 'relative' }}>
-                        <img src={preview} alt={`preview ${index + 1}`} style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px' }} />
-                        <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', borderRadius: '12px', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
-                          {index + 1}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="dz-empty">
-                    <Upload size={28} />
-                    <p className="muted">Choose 2-5 images • AI will pick the best one</p>
-                  </div>
-                )}
-                <input ref={multiInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onMultipleFiles(e.target.files)} />
-              </>
+              <div className="dz-empty">
+                <Upload size={28} />
+                <p className="muted">Choose 1-5 images • AI will pick the best one</p>
+              </div>
             )}
+            <input ref={multiInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onMultipleFiles(e.target.files)} />
 
             <div className="row gap">
               <button className="btn" onClick={handleChoose}>
-                {uploadMode === "single" ? "Choose file" : `Choose images ${files.length > 0 ? `(${files.length})` : ""}`}
+                Choose images {files.length > 0 ? `(${files.length})` : ""}
               </button>
               <button
                 className="btn primary"
                 disabled={
-                  (uploadMode === "single" && !file) ||
-                  (uploadMode === "multiple" && files.length === 0) ||
+                  files.length === 0 ||
                   status === "uploading" ||
                   status === "processing"
                 }
                 onClick={handleUpload}
               >
-                {status === "processing" ? "Analyzing..." : uploadMode === "multiple" ? "Analyze & Pick Best" : "Analyze with AI"}
+                {status === "processing" ? "Analyzing..." : "Analyze & Pick Best"}
               </button>
             </div>
 
-            {uploadMode === "multiple" && files.length > 0 && (
+            {files.length > 0 && (
               <p className="muted" style={{ marginTop: '8px', fontSize: '12px' }}>
                 🤖 AI will analyze all {files.length} images and automatically select the best one for your listing
               </p>
@@ -730,8 +632,8 @@ const UploadPage = () => {
           <p className="label">2) Status</p>
           <ol className="status">
             {[
-              { key: "uploading", label: uploadMode === "multiple" ? "Processing images..." : "Processing image..." },
-              { key: "processing", label: uploadMode === "multiple" ? "🧠 Gemini analyzing & selecting best image" : "🧠 Gemini Vision analyzing product" },
+              { key: "uploading", label: "Processing images..." },
+              { key: "processing", label: "🧠 Gemini analyzing & selecting best image" },
               { key: "ready", label: "Analysis complete!" },
             ].map(({ key, label }) => (
               <li key={key} className={`status-row ${status === key ? "active" : status === "idle" || status === "error" ? "" : "dim"}`}>
@@ -871,6 +773,79 @@ const DashboardPage = ({ onLogout }) => {
   );
 };
 
+// ========= Checkout Demo Page =========
+const CheckoutDemoPage = () => {
+  const [selectedShipping, setSelectedShipping] = useState(null);
+
+  const handleShippingSelect = (shippingOption) => {
+    setSelectedShipping(shippingOption);
+    console.log('Selected shipping option:', shippingOption);
+  };
+
+  return (
+    <Container className="upload">
+      <div className="cols">
+        {/* Cart Summary */}
+        <div className="card">
+          <h2 className="label">Your Order</h2>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span>3× Canvas Tote Bag</span>
+              <span>$75.00</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span>1× LEGO Architecture Set</span>
+              <span>$79.99</span>
+            </div>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '600' }}>
+              <span>Subtotal</span>
+              <span>$154.99</span>
+            </div>
+            {selectedShipping && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                  <span>Shipping ({selectedShipping.name})</span>
+                  <span>${selectedShipping.cost.toFixed(2)}</span>
+                </div>
+                <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '18px', color: 'var(--brand)' }}>
+                  <span>Total</span>
+                  <span>${(154.99 + selectedShipping.cost).toFixed(2)}</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              background: 'var(--bg-weak)',
+              padding: '12px',
+              borderRadius: '8px',
+              marginTop: '16px'
+            }}
+          >
+            <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Box size={16} /> Items to Ship
+            </h4>
+            <div style={{ fontSize: '13px', color: 'var(--text-weak)' }}>
+              • 3 soft canvas bags (15"×12"×6" each, 0.8 lbs)<br />
+              • 1 LEGO set box (18"×14"×3", 2.5 lbs)<br />
+              <br />
+              <strong>Challenge:</strong> Shopify would normally use 4 separate boxes, but AI optimization can find better combinations.
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Shipping Options */}
+        <ShippingOptimizer onShippingSelect={handleShippingSelect} />
+      </div>
+    </Container>
+  );
+};
+
 // ========= Root =========
 export default function App() {
   const { route, nav } = useHashRoute("home");
@@ -882,6 +857,7 @@ export default function App() {
       {route === "home" && <HomePage onStart={() => nav("upload")} />}
       {route === "upload" && <UploadPage />}
       {route === "shipping" && <ShippingCalculator />}
+      {route === "checkout" && <CheckoutDemoPage />}
       {route === "login" && <LoginPage onLoggedIn={() => nav("dashboard")} />}
       {route === "dashboard" && (authed ? <DashboardPage onLogout={() => { clearAuth(); nav("login"); }} /> : <LoginPage onLoggedIn={() => nav("dashboard")} />)}
       <Footer />

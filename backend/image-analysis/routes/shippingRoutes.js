@@ -1,9 +1,11 @@
 const express = require('express');
 const ShippingOptimizationService = require('../services/shippingOptimizationService');
+const AdvancedShippingOptimizer = require('../services/advancedShippingOptimizer');
 const router = express.Router();
 
-// Initialize shipping optimization service
-const shippingService = new ShippingOptimizationService();
+// Initialize both optimization services
+const shippingService = new ShippingOptimizationService(); // Legacy service
+const advancedOptimizer = new AdvancedShippingOptimizer(); // New advanced service
 
 // In-memory storage for processed products (in production, use database)
 const productDatabase = new Map();
@@ -48,12 +50,12 @@ router.post('/shipping/store-product', async (req, res) => {
 });
 
 /**
- * Calculate optimal shipping for multiple items
- * Main endpoint for multi-item shipping optimization
+ * Calculate optimal shipping using Advanced 3D Bin Packing
+ * NEW: Uses sophisticated layered packing with rotations
  */
-router.post('/shipping/calculate', async (req, res) => {
+router.post('/shipping/calculate-advanced', async (req, res) => {
   try {
-    const { items, destination = {} } = req.body;
+    const { items, options = {} } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -62,7 +64,7 @@ router.post('/shipping/calculate', async (req, res) => {
       });
     }
 
-    console.log(`🚛 Calculating shipping for ${items.length} item types`);
+    console.log(`🚀 Advanced shipping optimization for ${items.length} item types`);
 
     // Fetch product dimensions from stored data
     const productDimensions = await fetchProductDimensions(items);
@@ -74,13 +76,71 @@ router.post('/shipping/calculate', async (req, res) => {
       });
     }
 
-    // Calculate optimal packing
-    const packingResult = await shippingService.calculateOptimalPacking(
-      productDimensions,
-      destination
-    );
+    // Use the advanced 3D bin packing optimizer
+    const result = await advancedOptimizer.optimizeShipment(productDimensions, options);
 
-    console.log(`✅ Shipping calculated: ${packingResult.boxes.length} boxes, $${packingResult.totalCost}`);
+    console.log(`✅ Advanced optimization complete: ${result.totalBoxes} boxes, $${result.totalCost}`);
+
+    res.json({
+      success: true,
+      ...result,
+      calculatedAt: new Date().toISOString(),
+      algorithm: 'Advanced 3D Bin Packing with Rotations'
+    });
+
+  } catch (error) {
+    console.error('❌ Advanced shipping optimization error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to calculate advanced shipping optimization',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Calculate optimal shipping for multiple items (LEGACY)
+ * Main endpoint for multi-item shipping optimization using basic algorithm
+ */
+router.post('/shipping/calculate', async (req, res) => {
+  try {
+    const { items, destination = {}, useAdvanced = true } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Items array is required and must not be empty'
+      });
+    }
+
+    console.log(`🚛 Calculating shipping for ${items.length} item types${useAdvanced ? ' (Advanced Mode)' : ' (Legacy Mode)'}`);
+
+    // Fetch product dimensions from stored data
+    const productDimensions = await fetchProductDimensions(items);
+
+    if (productDimensions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid product data found for the provided items'
+      });
+    }
+
+    let packingResult;
+
+    if (useAdvanced) {
+      // Use the advanced 3D bin packing optimizer by default
+      packingResult = await advancedOptimizer.optimizeShipment(productDimensions, {
+        shipTogether: 'auto'
+      });
+    } else {
+      // Fallback to legacy optimizer
+      packingResult = await shippingService.calculateOptimalPacking(
+        productDimensions,
+        destination
+      );
+    }
+
+    console.log(`✅ Shipping calculated: ${packingResult.totalBoxes || packingResult.boxes.length} boxes, $${packingResult.totalCost}`);
 
     res.json({
       success: true,
@@ -132,7 +192,7 @@ router.get('/shipping/products', (req, res) => {
 });
 
 /**
- * Test shipping calculation with sample data
+ * Test shipping calculation with sample data (LEGACY)
  */
 router.post('/shipping/test', async (req, res) => {
   try {
@@ -181,6 +241,76 @@ router.post('/shipping/test', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Test calculation failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Test Advanced 3D Bin Packing - Tote Bags + LEGO Set Example
+ * Demonstrates the specific example: 3 tote bags + 1 LEGO set optimization
+ */
+router.post('/shipping/test-advanced', async (req, res) => {
+  try {
+    console.log('🧪 Testing advanced 3D bin packing with tote bags + LEGO set...');
+
+    // Create the exact scenario: 3 tote bags + 1 LEGO set
+    const testItems = [
+      {
+        productId: 'tote-bag',
+        name: 'Canvas Tote Bag',
+        productType: 'bag',
+        dimensions: { length: 15, width: 12, height: 6 },
+        estimatedWeight: 0.8,
+        material: 'canvas',
+        quantity: 3 // 3 tote bags
+      },
+      {
+        productId: 'lego-set',
+        name: 'LEGO Architecture Set',
+        productType: 'toy',
+        dimensions: { length: 18, width: 14, height: 3 },
+        estimatedWeight: 2.5,
+        material: 'plastic',
+        quantity: 1 // 1 LEGO set
+      }
+    ];
+
+    // Calculate with advanced optimizer
+    const advancedResult = await advancedOptimizer.optimizeShipment(testItems);
+
+    // Calculate what standard shipping would cost (separate boxes)
+    const standardCost = (testItems[0].quantity * 6.50) + (testItems[1].quantity * 9.00); // Tote bags in medium, LEGO in large
+    const savings = standardCost - advancedResult.totalCost;
+
+    console.log(`✅ Test complete: ${advancedResult.totalBoxes} box(es), $${advancedResult.totalCost} (saves $${savings.toFixed(2)})`);
+
+    res.json({
+      success: true,
+      scenario: 'Tote Bags + LEGO Set Optimization',
+      items: testItems,
+      results: {
+        advanced: advancedResult,
+        standard: {
+          cost: standardCost,
+          boxes: testItems.reduce((sum, item) => sum + item.quantity, 0), // Would ship individually
+          description: 'Standard individual shipping'
+        },
+        comparison: {
+          savings: savings.toFixed(2),
+          percentSaved: ((savings / standardCost) * 100).toFixed(1) + '%',
+          efficiency: `${advancedResult.totalBoxes} box vs ${testItems.reduce((sum, item) => sum + item.quantity, 0)} boxes normally`
+        }
+      },
+      message: 'Advanced 3D bin packing test completed successfully',
+      algorithm: 'Layered 3D Packing with 6-way Rotations + Guillotine 2D'
+    });
+
+  } catch (error) {
+    console.error('❌ Advanced test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Advanced test calculation failed',
       message: error.message
     });
   }
