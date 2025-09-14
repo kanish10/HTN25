@@ -1,16 +1,29 @@
-const AWS = require('aws-sdk');
+const {
+    S3Client,
+    PutObjectCommand,
+    GetObjectCommand,
+    ListObjectsV2Command,
+    HeadObjectCommand,
+    DeleteObjectCommand,
+    CopyObjectCommand
+} = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { v4: uuidv4 } = require('uuid');
 
 class S3Service {
     constructor() {
-        // Configure AWS SDK
-        AWS.config.update({
-            region: process.env.AWS_REGION,
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-        });
+        // Initialize AWS SDK v3 S3 client
+        const region = process.env.AWS_REGION;
+        const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+        const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
-        this.s3 = new AWS.S3();
+        const clientConfig = { region };
+        // Use explicit credentials if provided; otherwise, default provider chain will be used
+        if (accessKeyId && secretAccessKey) {
+            clientConfig.credentials = { accessKeyId, secretAccessKey };
+        }
+
+        this.s3 = new S3Client(clientConfig);
         this.bucketName = process.env.S3_BUCKET_NAME;
     }
 
@@ -74,7 +87,7 @@ class S3Service {
                 }
             };
 
-            const result = await this.s3.upload(params).promise();
+            const result = await this.s3.send(new PutObjectCommand(params));
             const imageUrl = this.generatePublicUrl(s3Key);
 
             console.log(`Successfully uploaded image for product ${productId} to S3`);
@@ -84,7 +97,7 @@ class S3Service {
                 productId,
                 s3Key,
                 imageUrl,
-                location: result.Location,
+                location: imageUrl,
                 etag: result.ETag,
                 fileName,
                 contentType,
@@ -107,11 +120,10 @@ class S3Service {
         try {
             const params = {
                 Bucket: this.bucketName,
-                Key: s3Key,
-                Expires: expiresIn
+                Key: s3Key
             };
 
-            const readUrl = await this.s3.getSignedUrlPromise('getObject', params);
+            const readUrl = await getSignedUrl(this.s3, new GetObjectCommand(params), { expiresIn });
 
             console.log(`Generated presigned read URL for ${s3Key}`);
 
@@ -138,7 +150,6 @@ class S3Service {
             const params = {
                 Bucket: this.bucketName,
                 Key: s3Key,
-                Expires: 300, // 5 minutes
                 ContentType: fileType,
                 Metadata: {
                     productId: finalProductId,
@@ -146,7 +157,7 @@ class S3Service {
                 }
             };
 
-            const uploadUrl = await this.s3.getSignedUrlPromise('putObject', params);
+            const uploadUrl = await getSignedUrl(this.s3, new PutObjectCommand(params), { expiresIn: 300 });
             const imageUrl = this.generatePublicUrl(s3Key);
 
             console.log(`Generated presigned URL for product ${finalProductId}`);
@@ -174,14 +185,13 @@ class S3Service {
    */
   async getPresignedUploadUrlWithKey(s3Key, fileType) {
     try {
-      const params = {
-        Bucket: this.bucketName,
-        Key: s3Key,
-        Expires: 300, // 5 minutes
-        ContentType: fileType
-      };
+            const params = {
+                Bucket: this.bucketName,
+                Key: s3Key,
+                ContentType: fileType
+            };
 
-      const uploadUrl = await this.s3.getSignedUrlPromise('putObject', params);
+            const uploadUrl = await getSignedUrl(this.s3, new PutObjectCommand(params), { expiresIn: 300 });
       const imageUrl = this.generatePublicUrl(s3Key);
 
       console.log(`Generated presigned URL for key ${s3Key}`);
@@ -212,7 +222,7 @@ class S3Service {
         Prefix: `products/${productId}`
       };
 
-      const listResult = await this.s3.listObjectsV2(listParams).promise();
+    const listResult = await this.s3.send(new ListObjectsV2Command(listParams));
 
       if (!listResult.Contents || listResult.Contents.length === 0) {
         return [];
@@ -249,7 +259,7 @@ class S3Service {
                 Prefix: `products/${productId}.`
             };
 
-            const listResult = await this.s3.listObjectsV2(listParams).promise();
+            const listResult = await this.s3.send(new ListObjectsV2Command(listParams));
 
             if (!listResult.Contents || listResult.Contents.length === 0) {
                 throw new Error(`No image found for product ID ${productId}`);
@@ -262,7 +272,7 @@ class S3Service {
                 Key: s3Key
             };
 
-            const metadata = await this.s3.headObject(headParams).promise();
+            const metadata = await this.s3.send(new HeadObjectCommand(headParams));
             const imageUrl = this.generatePublicUrl(s3Key);
 
             return {
@@ -296,7 +306,7 @@ class S3Service {
                 MaxKeys: maxKeys
             };
 
-            const result = await this.s3.listObjectsV2(params).promise();
+            const result = await this.s3.send(new ListObjectsV2Command(params));
 
             const images = result.Contents.map(object => {
                 // Extract product ID from key (assuming format: products/prod_timestamp_uuid.ext)
@@ -357,7 +367,7 @@ class S3Service {
                 Key: s3Key
             };
 
-            await this.s3.deleteObject(params).promise();
+            await this.s3.send(new DeleteObjectCommand(params));
 
             console.log(`Successfully deleted image: ${s3Key}`);
 
@@ -391,7 +401,7 @@ class S3Service {
 
             const copyParams = {
                 Bucket: this.bucketName,
-                CopySource: `${this.bucketName}/${sourceMetadata.s3Key}`,
+                CopySource: encodeURIComponent(`${this.bucketName}/${sourceMetadata.s3Key}`),
                 Key: targetS3Key,
                 Metadata: {
                     productId: targetProductId,
@@ -401,7 +411,7 @@ class S3Service {
                 MetadataDirective: 'REPLACE'
             };
 
-            await this.s3.copyObject(copyParams).promise();
+            await this.s3.send(new CopyObjectCommand(copyParams));
 
             const targetImageUrl = this.generatePublicUrl(targetS3Key);
 
