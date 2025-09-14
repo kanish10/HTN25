@@ -302,6 +302,7 @@ button, input, textarea, select { font-family: inherit; }
 
 .progress-bar-container {
   width: 100%;
+  max-width: 100%;
   background-color: var(--border);
   border-radius: 8px;
   overflow: hidden;
@@ -320,6 +321,10 @@ button, input, textarea, select { font-family: inherit; }
   grid-template-columns: 400px 1fr;
   gap: 20px;
   align-items: start;
+}
+
+.upload .cols {
+  align-items: stretch;
 }
 
 .dropzone {

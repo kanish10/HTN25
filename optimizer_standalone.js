@@ -273,8 +273,15 @@ function optimizeShipment(input) {
 
   while (remaining.length > 0) {
     // Try all box types on current remaining set; pick best partial pack
+    // IMPROVED: Sort boxes by capacity (volume/weight) efficiency first
+    const sortedBoxes = [...boxes].sort((a, b) => {
+      const aCapacity = (a.length * a.width * a.height) / a.cost;
+      const bCapacity = (b.length * b.width * b.height) / b.cost;
+      return bCapacity - aCapacity; // Descending order (most efficient first)
+    });
+
     const trials = [];
-    for (const b of boxes) {
+    for (const b of sortedBoxes) {
       const pack = tryPackInBox(b, remaining);
       if (!pack.ok || pack.placements.length === 0) continue;
 
@@ -314,16 +321,15 @@ function optimizeShipment(input) {
       continue;
     }
 
-    // Scale-sensitive choose: min-max scale cost & dim across trials, then score
-    const minCost = Math.min(...trials.map(t=>t.features.cost));
-    const maxCost = Math.max(...trials.map(t=>t.features.cost));
-    const minDim  = Math.min(...trials.map(t=>t.features.dimWeight));
-    const maxDim  = Math.max(...trials.map(t=>t.features.dimWeight));
+    // Simple scoring: prioritize packing more items, then lower cost
+
+    // SIMPLE: Sort by most items packed first, then by cost
     for (const t of trials) {
-      const cS = (t.features.cost - minCost) / Math.max(1e-9, (maxCost - minCost));
-      const dS = (t.features.dimWeight - minDim) / Math.max(1e-9, (maxDim - minDim));
-      t._scaled = { cost: cS, void: t.features.voidRatio, dim: dS, count: 0 };
-      t.score = martianScore(t._scaled, data.options?.weights);
+      const itemsPacked = t.pack.placements.length;
+      const cost = t.features.cost;
+
+      // Simple score: prioritize more items, then lower cost
+      t.score = -itemsPacked * 1000 + cost; // Negative items to prioritize more items, then add cost
     }
 
     trials.sort((a,b)=> a.score - b.score);
