@@ -1,12 +1,13 @@
 import React, { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  Upload, Wand2, Box, Zap, CheckCircle, Github, ExternalLink,
+  Upload, Wand2, Box, Zap, CheckCircle, ExternalLink,
   AlertCircle, ChevronDown, ChevronUp, Package, Tag, DollarSign, Truck,
-  LogIn, LogOut, User, Calculator
+  LogIn, LogOut, User, Calculator, X, Eye, Monitor, Maximize2
 } from "lucide-react";
 import axios from "axios";
 import ShippingCalculator from "./ShippingCalculator";
+import ShippingOptimizer from "./ShippingOptimizer";
 import { login, logout, isAuthenticated, getUser, verifyToken } from "./auth";
 import "./App.css"; // keep your current CSS
 
@@ -25,13 +26,343 @@ const addUpload = (item) => {
   localStorage.setItem(UPLOADS_KEY, JSON.stringify(arr.slice(0, 50)));
 };
 
-// ========= Analysis Results (your component, unchanged) =========
+// ========= AI AGENT COMPONENTS =========
+
+// AI Agent Wrapper Component
+const AIAgentWrapper = ({ children, isActive, className = "", ...props }) => {
+  return (
+    <div className={`ai-agent-wrapper ${isActive ? 'active' : ''} ${className}`} {...props}>
+      {children}
+    </div>
+  );
+};
+
+// AI Status Messages Component
+const AIStatusMessage = ({ message, submessage, type = "processing", icon: Icon }) => {
+  const [displayedMessage, setDisplayedMessage] = useState("");
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    if (type === "processing" && message) {
+      setDisplayedMessage("");
+      setMessageIndex(0);
+
+      const timer = setInterval(() => {
+        setMessageIndex((prevIndex) => {
+          if (prevIndex < message.length) {
+            setDisplayedMessage(message.slice(0, prevIndex + 1));
+            return prevIndex + 1;
+          } else {
+            clearInterval(timer);
+            return prevIndex;
+          }
+        });
+      }, 50);
+
+      return () => clearInterval(timer);
+    } else {
+      setDisplayedMessage(message);
+    }
+  }, [message, type]);
+
+  return (
+    <div className="ai-status-container">
+      <div className="ai-status-message">
+        <div className={`ai-status-icon ${type}`}>
+          {Icon ? <Icon size={14} /> : <Wand2 size={14} />}
+        </div>
+        <span className={type === "processing" ? "typing-effect" : ""}>
+          {displayedMessage}
+        </span>
+      </div>
+      {submessage && (
+        <div className="ai-status-submessage">
+          {submessage}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// AI Progress Steps Component
+const AIProgressSteps = ({ steps, currentStep }) => {
+  return (
+    <div className="ai-progress-steps">
+      {steps.map((step, index) => {
+        const isCompleted = index < currentStep;
+        const isActive = index === currentStep;
+
+        return (
+          <div
+            key={index}
+            className={`ai-progress-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+          >
+            <div className="ai-progress-indicator">
+              {isCompleted ? <CheckCircle size={16} /> : index + 1}
+            </div>
+            <div className="ai-progress-content">
+              <div className="ai-progress-title">{step.title}</div>
+              <div className="ai-progress-description">{step.description}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Embedded Shopify Preview Component
+const EmbeddedShopifyPreview = ({
+  isOpen,
+  onClose,
+  productData,
+  onPublish,
+  publishStatus,
+  autoScroll = true
+}) => {
+  const [currentHighlight, setCurrentHighlight] = useState(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const mockShopifyFields = [
+    { id: 'title', label: 'Product Title', value: productData?.generatedContent?.title || 'Loading...', delay: 1000 },
+    { id: 'description', label: 'Description', value: productData?.generatedContent?.description || 'Loading...', delay: 2000 },
+    { id: 'price', label: 'Price', value: productData?.extractedData?.suggestedPrice ? `$${productData.extractedData.suggestedPrice.min} - $${productData.extractedData.suggestedPrice.max}` : 'Loading...', delay: 3000 },
+    { id: 'tags', label: 'SEO Tags', value: productData?.generatedContent?.seoTags?.join(', ') || 'Loading...', delay: 4000 },
+    { id: 'shipping', label: 'Shipping', value: productData?.shippingData?.singleItem?.recommendedBox || 'Loading...', delay: 5000 }
+  ];
+
+  // Auto-scroll simulation
+  useEffect(() => {
+    if (!isOpen || !autoScroll || isHovered) return;
+
+    let currentIndex = 0;
+    const scrollInterval = setInterval(() => {
+      if (currentIndex < mockShopifyFields.length && !isHovered) {
+        setCurrentHighlight(mockShopifyFields[currentIndex].id);
+        setScrollProgress((currentIndex + 1) / mockShopifyFields.length * 100);
+        currentIndex++;
+      } else if (currentIndex >= mockShopifyFields.length) {
+        clearInterval(scrollInterval);
+        setCurrentHighlight(null);
+      }
+    }, 1500);
+
+    return () => clearInterval(scrollInterval);
+  }, [isOpen, autoScroll, isHovered, mockShopifyFields.length]);
+
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      className="embedded-preview-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="embedded-preview-container">
+        <div className="embedded-preview-header">
+          <div className="embedded-preview-title">
+            <Monitor size={20} />
+            Shopify Product Preview
+          </div>
+          <div className="embedded-preview-controls">
+            <button className="btn ai-secondary" onClick={() => window.open('#', '_blank')}>
+              <Maximize2 size={14} />
+              Open in New Tab
+            </button>
+            <button className="btn" onClick={onClose}>
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className="embedded-preview-content">
+          <div className="embedded-preview-sidebar">
+            <h3 style={{ marginTop: 0, color: '#065f46' }}>Auto-Populate Progress</h3>
+            <div style={{ marginBottom: '20px' }}>
+              <div className="progress-bar-container">
+                <div
+                  className="progress-bar"
+                  style={{ width: `${scrollProgress}%`, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                ></div>
+              </div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+                {Math.round(scrollProgress)}% Complete
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {mockShopifyFields.map((field) => (
+                <div
+                  key={field.id}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: currentHighlight === field.id
+                      ? '2px solid #10b981'
+                      : '1px solid #e5e7eb',
+                    background: currentHighlight === field.id
+                      ? 'rgba(16, 185, 129, 0.1)'
+                      : 'white',
+                    transition: 'all 0.5s ease'
+                  }}
+                >
+                  <div style={{ fontWeight: '600', fontSize: '13px', color: '#374151', marginBottom: '4px' }}>
+                    {field.label}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                    {field.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+              <button
+                className={`btn ai-primary`}
+                style={{ width: '100%' }}
+                onClick={onPublish}
+                disabled={publishStatus === 'publishing'}
+              >
+                {publishStatus === 'publishing' ? (
+                  <>
+                    <div className="ai-loading-dots">
+                      <div className="ai-loading-dot"></div>
+                      <div className="ai-loading-dot"></div>
+                      <div className="ai-loading-dot"></div>
+                    </div>
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <Zap size={16} />
+                    Publish to Shopify
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="embedded-preview-main"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            {/* Mock Shopify Interface */}
+            <div style={{
+              padding: '40px',
+              minHeight: '100%',
+              overflow: 'auto',
+              background: '#f8fafc',
+              position: 'relative'
+            }}>
+              <div style={{
+                maxWidth: '800px',
+                margin: '0 auto',
+                background: 'white',
+                borderRadius: '12px',
+                padding: '32px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                minHeight: '600px'
+              }}>
+                <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '24px', color: '#1f2937' }}>
+                  Create Product
+                </h1>
+
+                {mockShopifyFields.map((field) => (
+                  <div
+                    key={field.id}
+                    style={{
+                      marginBottom: '24px',
+                      position: 'relative'
+                    }}
+                  >
+                    {currentHighlight === field.id && (
+                      <div
+                        className="scroll-highlight-overlay active"
+                        style={{
+                          position: 'absolute',
+                          inset: '-8px',
+                          zIndex: 5
+                        }}
+                      />
+                    )}
+                    <label style={{
+                      display: 'block',
+                      fontWeight: '600',
+                      marginBottom: '8px',
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      {field.label}
+                    </label>
+                    {field.id === 'description' ? (
+                      <textarea
+                        style={{
+                          width: '100%',
+                          minHeight: '120px',
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          background: currentHighlight === field.id ? 'rgba(16, 185, 129, 0.05)' : 'white',
+                          transition: 'background-color 0.5s ease'
+                        }}
+                        value={field.value}
+                        readOnly
+                      />
+                    ) : (
+                      <input
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          background: currentHighlight === field.id ? 'rgba(16, 185, 129, 0.05)' : 'white',
+                          transition: 'background-color 0.5s ease'
+                        }}
+                        value={field.value}
+                        readOnly
+                      />
+                    )}
+                  </div>
+                ))}
+
+                <div style={{
+                  marginTop: '32px',
+                  padding: '20px',
+                  background: '#f0fdf4',
+                  borderRadius: '8px',
+                  border: '1px solid #bbf7d0'
+                }}>
+                  <div style={{ fontSize: '14px', color: '#065f46', fontWeight: '600', marginBottom: '8px' }}>
+                    ✨ AI Generated Content Ready!
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#047857', lineHeight: '1.5' }}>
+                    Your product listing has been automatically populated with AI-generated content.
+                    Review the fields above and click "Save" when ready to publish.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// ========= Analysis Results (enhanced with embedded preview) =========
 const AnalysisResults = ({ result, processingTime }) => {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [publishStatus, setPublishStatus] = useState("idle"); // idle | publishing | success | error
   const [publishError, setPublishError] = useState(null);
   const [publishResult, setPublishResult] = useState(null);
+  const [showEmbeddedPreview, setShowEmbeddedPreview] = useState(false);
 
   const tabs = [
     { id: "overview", label: "Overview", icon: Package },
@@ -85,7 +416,7 @@ const AnalysisResults = ({ result, processingTime }) => {
     <div className="result">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <p className="result-title">
-          🎉 Analysis Complete {processingTime > 0 && (
+          Analysis Complete {processingTime > 0 && (
             <span style={{ fontWeight: 'normal', color: '#6b7280' }}>
               ({(processingTime/1000).toFixed(1)}s)
             </span>
@@ -120,8 +451,15 @@ const AnalysisResults = ({ result, processingTime }) => {
                   className={`link ${activeTab === tab.id ? 'active' : ''}`}
                   onClick={() => setActiveTab(tab.id)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px',
-                    borderBottom: activeTab === tab.id ? '2px solid var(--brand)' : '2px solid transparent'
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    borderBottom: activeTab === tab.id ? '2px solid var(--brand)' : '2px solid transparent',
+                    backgroundColor: activeTab === tab.id ? 'var(--bg-weak)' : 'transparent',
+                    color: activeTab === tab.id ? 'var(--brand)' : 'var(--text)',
+                    borderRadius: '4px 4px 0 0',
+                    fontWeight: activeTab === tab.id ? '600' : '400'
                   }}
                 >
                   <IconComponent size={14} />
@@ -131,9 +469,9 @@ const AnalysisResults = ({ result, processingTime }) => {
             })}
           </div>
 
-          <div style={{ minHeight: '200px' }}>
+          <div style={{ minHeight: '300px', width: '100%', maxWidth: '100%' }}>
             {activeTab === "overview" && (
-              <div style={{ display: 'grid', gap: '12px' }}>
+              <div style={{ display: 'grid', gap: '12px', width: '100%', maxWidth: '100%', minHeight: '280px' }}>
                 {result.imageUrl && (
                   <div className="card" style={{ padding: '12px' }}>
                     <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Selected Product Image</h4>
@@ -153,7 +491,7 @@ const AnalysisResults = ({ result, processingTime }) => {
                     </div>
                     {result.imageAnalysis?.selectedImage && (
                       <div style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280' }}>
-                        🏆 Best image selected (#{result.imageAnalysis.selectedImage.index + 1} of {result.imageAnalysis.totalImagesAnalyzed})
+                        Best image selected (#{result.imageAnalysis.selectedImage.index + 1} of {result.imageAnalysis.totalImagesAnalyzed})
                       </div>
                     )}
                   </div>
@@ -187,112 +525,110 @@ const AnalysisResults = ({ result, processingTime }) => {
             )}
 
             {activeTab === "content" && (
-              <div style={{ display: 'grid', gap: '12px' }}>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Generated Title</h4>
-                  <p style={{ margin: 0, fontWeight: '600', fontSize: '16px' }}>{result.generatedContent.title}</p>
+              <div style={{ display: 'grid', gap: '16px', width: '100%', maxWidth: '100%' }}>
+                <div className="card" style={{ padding: '16px' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>Generated Title</h4>
+                  <p style={{ margin: 0, fontWeight: '600', fontSize: '18px', color: 'var(--brand)', lineHeight: '1.3' }}>{result.generatedContent.title}</p>
                 </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Description</h4>
-                  <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.5' }}>{result.generatedContent.description}</p>
-                </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Bullet Points</h4>
-                  <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                    {result.generatedContent.bulletPoints.map((point, i) => (
-                      <li key={i} style={{ fontSize: '14px', marginBottom: '4px' }}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>SEO Tags</h4>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {result.generatedContent.seoTags.map((tag, i) => (
-                      <span key={i} className="chip" style={{ fontSize: '12px', background: 'var(--chip)' }}>{tag}</span>
-                    ))}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="card" style={{ padding: '16px' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>Description</h4>
+                    <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.6', color: '#374151' }}>{result.generatedContent.description}</p>
+                  </div>
+
+                  <div className="card" style={{ padding: '16px' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>Key Features</h4>
+                    <ul style={{ margin: 0, paddingLeft: '18px', listStyle: 'disc' }}>
+                      {result.generatedContent.bulletPoints.slice(0, 4).map((point, i) => (
+                        <li key={i} style={{ fontSize: '14px', marginBottom: '6px', lineHeight: '1.4', color: '#374151' }}>{point}</li>
+                      ))}
+                    </ul>
+                    {result.generatedContent.bulletPoints.length > 4 && (
+                      <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
+                        +{result.generatedContent.bulletPoints.length - 4} more features
+                      </div>
+                    )}
                   </div>
                 </div>
-                {result.generatedContent.abVariants && (
-                  <div className="card" style={{ padding: '12px' }}>
-                    <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>A/B Test Variants</h4>
-                    <div style={{ display: 'grid', gap: '8px' }}>
-                      <div><strong>Variant A:</strong> {result.generatedContent.abVariants.titleA}</div>
-                      <div><strong>Variant B:</strong> {result.generatedContent.abVariants.titleB}</div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: result.generatedContent.abVariants ? '2fr 1fr' : '1fr', gap: '16px' }}>
+                  <div className="card" style={{ padding: '16px' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>SEO Tags</h4>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {result.generatedContent.seoTags.map((tag, i) => (
+                        <span key={i} className="chip" style={{ fontSize: '12px', background: 'var(--chip)', padding: '4px 8px' }}>{tag}</span>
+                      ))}
                     </div>
                   </div>
-                )}
+
+                  {result.generatedContent.abVariants && (
+                    <div className="card" style={{ padding: '16px' }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>A/B Test Variants</h4>
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
+                          <div style={{ fontWeight: '600', color: '#059669', marginBottom: '2px' }}>Variant A:</div>
+                          <div style={{ color: '#374151' }}>{result.generatedContent.abVariants.titleA}</div>
+                        </div>
+                        <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
+                          <div style={{ fontWeight: '600', color: '#0ea5e9', marginBottom: '2px' }}>Variant B:</div>
+                          <div style={{ color: '#374151' }}>{result.generatedContent.abVariants.titleB}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
             {activeTab === "shipping" && (
-              <div style={{ display: 'grid', gap: '12px' }}>
-                <div className="card" style={{ padding: '12px', background: '#f0f9ff' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Recommended Shipping</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gap: '16px', width: '100%', maxWidth: '100%' }}>
+                <div className="card" style={{ padding: '16px', background: '#f0f9ff' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>Recommended Shipping</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '16px' }}>
                     <div>
-                      <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--brand)' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--brand)' }}>
                         {result.shippingData.singleItem.recommendedBox}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Box Type</div>
+                      <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>Optimal Box Type</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '18px', fontWeight: '600', color: '#059669' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#059669' }}>
                         ${result.shippingData.singleItem.shippingCost}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Shipping Cost</div>
+                      <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>Shipping Cost</div>
                     </div>
                   </div>
-                  <div style={{ marginTop: '8px', padding: '8px', background: '#dcfce7', borderRadius: '6px' }}>
+                  <div style={{ padding: '12px', background: '#dcfce7', borderRadius: '8px', borderLeft: '4px solid #22c55e' }}>
                     <div style={{ fontSize: '14px', color: '#166534', fontWeight: '600' }}>
-                      💰 {result.shippingData.savings.description}
+                      {result.shippingData.savings.description}
                     </div>
                   </div>
-                </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Bulk Shipping Options</h4>
-                  {result.shippingData.bulkOrders?.map((bulk, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < result.shippingData.bulkOrders.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                      <span>{bulk.quantity} items - {bulk.recommendedBox}</span>
-                      <span><strong>${bulk.costPerItem}/item</strong> (${bulk.totalCost} total)</span>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
 
             {activeTab === "pricing" && (
-              <div style={{ display: 'grid', gap: '12px' }}>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>Suggested Price Range</h4>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div>
-                      <div style={{ fontSize: '24px', fontWeight: '600', color: '#059669' }}>
+              <div style={{ display: 'grid', gap: '16px', width: '100%', maxWidth: '100%' }}>
+                <div className="card" style={{ padding: '20px', background: 'linear-gradient(135deg, #f0fdf4 0%, #f0f9ff 100%)' }}>
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700', color: '#1f2937' }}>AI-Suggested Price Range</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#059669', lineHeight: '1' }}>
                         ${result.extractedData.suggestedPrice.min}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Minimum</div>
+                      <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px', fontWeight: '500' }}>Minimum Price</div>
                     </div>
-                    <div style={{ fontSize: '20px', color: '#6b7280' }}>→</div>
-                    <div>
-                      <div style={{ fontSize: '24px', fontWeight: '600', color: '#059669' }}>
+                    <div style={{ fontSize: '24px', color: '#d1d5db', fontWeight: '300' }}>—</div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#059669', lineHeight: '1' }}>
                         ${result.extractedData.suggestedPrice.max}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Maximum</div>
+                      <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px', fontWeight: '500' }}>Maximum Price</div>
                     </div>
                   </div>
-                </div>
-                <div className="card" style={{ padding: '12px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>AI Processing Costs</h4>
-                  <div style={{ display: 'grid', gap: '8px' }}>
-                    {result.generatedContent.aiCosts.breakdown.map((cost, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                        <span>{cost.service} - {cost.operation}</span>
-                        <span><strong>${cost.cost.toFixed(3)}</strong></span>
-                      </div>
-                    ))}
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: '600' }}>
-                      <span>Total AI Cost</span>
-                      <span style={{ color: 'var(--brand)' }}>${result.generatedContent.aiCosts.total}</span>
-                    </div>
+                  <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: '#6b7280', fontStyle: 'italic' }}>
+                    Based on market analysis and product characteristics
                   </div>
                 </div>
               </div>
@@ -335,18 +671,35 @@ const AnalysisResults = ({ result, processingTime }) => {
 
       <div className="row gap" style={{ marginTop: '16px' }}>
         <button
-          className="btn primary"
+          className="btn ai-primary"
+          disabled={publishStatus === "publishing" || publishStatus === "success"}
+          onClick={() => setShowEmbeddedPreview(true)}
+        >
+          <Eye size={16} />
+          {publishStatus === "publishing" ? "Publishing..." :
+           publishStatus === "success" ? "Published ✓" :
+           "Preview & Publish"}
+        </button>
+        <button
+          className="btn ai-secondary"
           disabled={publishStatus === "publishing" || publishStatus === "success"}
           onClick={handlePublishToShopify}
         >
+          <Zap size={16} />
           {publishStatus === "publishing" ? "Publishing..." :
            publishStatus === "success" ? "Published ✓" :
-           "Publish to Shopify"}
-        </button>
-        <button className="btn" onClick={() => console.log('Full analysis:', result)}>
-          Export Data
+           "Quick Publish"}
         </button>
       </div>
+
+      {/* Embedded Shopify Preview */}
+      <EmbeddedShopifyPreview
+        isOpen={showEmbeddedPreview}
+        onClose={() => setShowEmbeddedPreview(false)}
+        productData={result}
+        onPublish={handlePublishToShopify}
+        publishStatus={publishStatus}
+      />
     </div>
   );
 };
@@ -371,7 +724,7 @@ const Container = ({ className = "", children }) => (
 // Top nav uses your existing classes (.nav, .nav-inner, etc.)
 const Nav = ({ onNav, route, user, onLogout }) => {
   const authed = isAuthenticated();
-  
+
   const handleLogout = async () => {
     await logout();
     onLogout();
@@ -387,12 +740,15 @@ const Nav = ({ onNav, route, user, onLogout }) => {
         </div>
         <nav className="nav-links">
           <button className={`link ${route === "home" ? "active" : ""}`} onClick={() => onNav("home")}>Home</button>
-          {authed && (
+          <button className={`link ${route === "upload" ? "active" : ""}`} onClick={() => onNav("upload")}>Upload</button>
+          {/* <button className={`link ${route === "shipping" ? "active" : ""}`} onClick={() => onNav("shipping")}>
+            <Calculator size={14} /> Shipping
+          </button>
+          <button className={`link ${route === "checkout" ? "active" : ""}`} onClick={() => onNav("checkout")}>
+            <Package size={14} /> Checkout Demo
+          </button> */}
+          {authed ? (
             <>
-              <button className={`link ${route === "upload" ? "active" : ""}`} onClick={() => onNav("upload")}>Upload</button>
-              <button className={`link ${route === "shipping" ? "active" : ""}`} onClick={() => onNav("shipping")}>
-                <Calculator size={14} /> Shipping
-              </button>
               <button className={`link ${route === "dashboard" ? "active" : ""}`} onClick={() => onNav("dashboard")}>Dashboard</button>
             </>
           )}
@@ -402,7 +758,7 @@ const Nav = ({ onNav, route, user, onLogout }) => {
             <button className={`link ${route === "login" ? "active" : ""}`} onClick={() => onNav("login")}>Login</button>
           )}
           <a className="pill" href="https://github.com/kanish10/HTN25" target="_blank" rel="noreferrer">
-            <Github size={14} /> Repo
+            <ExternalLink size={14} /> Repo
           </a>
         </nav>
       </Container>
@@ -471,35 +827,125 @@ const HomePage = ({ onStart }) => (
   </>
 );
 
-// Upload page: keep your look; when analysis finishes, we save to dashboard
+// Upload page: Enhanced with AI Agent interface
 const UploadPage = () => {
-  const inputRef = useRef(null);
   const multiInputRef = useRef(null);
-  const [file, setFile] = useState(null);
-  const [files, setFiles] = useState([]); // For multiple images
-  const [uploadMode, setUploadMode] = useState("single"); // single | multiple
+  const [files, setFiles] = useState([]); // For images
   const [status, setStatus] = useState("idle"); // idle | uploading | processing | ready | error
-  const [preview, setPreview] = useState(null);
-  const [previews, setPreviews] = useState([]); // For multiple previews
+  const [previews, setPreviews] = useState([]); // For image previews
   const [analysisResult, setAnalysisResult] = useState(null);
   const [error, setError] = useState(null);
   const [processingTime, setProcessingTime] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState(-1);
+  const [aiMessage, setAiMessage] = useState("");
+  const [aiSubmessage, setAiSubmessage] = useState("");
+
+  // AI Progress Steps Configuration
+  const aiProgressSteps = [
+    {
+      title: "Initializing AI Agent",
+      description: "Preparing Gemini Vision for multi-image analysis"
+    },
+    {
+      title: "Analyzing Images",
+      description: "Processing visual content and extracting product details"
+    },
+    {
+      title: "Selecting Best Image",
+      description: "Using AI to determine the optimal product photo"
+    },
+    {
+      title: "Generating Content",
+      description: "Creating title, description, and SEO tags"
+    }
+  ];
+
+  // Enhanced progress handling with AI steps
+  React.useEffect(() => {
+    let interval = null;
+    let stepInterval = null;
+
+    if (status === "processing") {
+      setProgress(0);
+      setCurrentStep(0);
+      setAiMessage("AI Agent Initializing...");
+      setAiSubmessage("Starting Gemini Vision analysis for your product images");
+
+      // Progress bar animation
+      interval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 95) {
+            clearInterval(interval);
+            return 95;
+          }
+          const increment = Math.random() * 8;
+          return Math.min(prev + increment, 95);
+        });
+      }, 400);
+
+      // Step progression with realistic timing
+      const stepMessages = [
+        {
+          message: "AI Agent Initializing...",
+          submessage: "Preparing Gemini Vision for multi-image analysis",
+          duration: 1500
+        },
+        {
+          message: "Analyzing product images...",
+          submessage: "Processing visual content and extracting product details",
+          duration: 3000
+        },
+        {
+          message: "Selecting optimal image...",
+          submessage: "Using AI to determine the best product photo for your listing",
+          duration: 2000
+        },
+        {
+          message: "Generating marketing content...",
+          submessage: "Creating title, description, and SEO-optimized tags",
+          duration: 2500
+        }
+      ];
+
+      let currentStepIndex = 0;
+      const progressSteps = () => {
+        if (currentStepIndex < stepMessages.length) {
+          const step = stepMessages[currentStepIndex];
+          setCurrentStep(currentStepIndex);
+          setAiMessage(step.message);
+          setAiSubmessage(step.submessage);
+
+          setTimeout(() => {
+            currentStepIndex++;
+            progressSteps();
+          }, step.duration);
+        }
+      };
+
+      progressSteps();
+    } else if (status === "ready") {
+      setProgress(100);
+      setCurrentStep(aiProgressSteps.length);
+      setAiMessage("Analysis Complete!");
+      setAiSubmessage("Your product listing is ready for review and publishing");
+    } else if (status === "error") {
+      setProgress(0);
+      setCurrentStep(-1);
+    } else {
+      setCurrentStep(-1);
+      setAiMessage("");
+      setAiSubmessage("");
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+      if (stepInterval) clearInterval(stepInterval);
+    };
+  }, [status, aiProgressSteps.length]);
 
   const handleChoose = () => {
-    if (uploadMode === "single") {
-      inputRef.current?.click();
-    } else {
-      multiInputRef.current?.click();
-    }
-  };
-
-  const onFile = (f) => {
-    if (!f) return;
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
-    setError(null);
-    setAnalysisResult(null);
-    setUploadMode("single");
+    multiInputRef.current?.click();
   };
 
   const onMultipleFiles = (fileList) => {
@@ -514,25 +960,6 @@ const UploadPage = () => {
     setPreviews(filesArray.map(f => URL.createObjectURL(f)));
     setError(null);
     setAnalysisResult(null);
-    setUploadMode("multiple");
-    setFile(null);
-    setPreview(null);
-  };
-
-  const switchToMultiple = () => {
-    setUploadMode("multiple");
-    setFile(null);
-    setPreview(null);
-    setError(null);
-    setAnalysisResult(null);
-  };
-
-  const switchToSingle = () => {
-    setUploadMode("single");
-    setFiles([]);
-    setPreviews([]);
-    setError(null);
-    setAnalysisResult(null);
   };
 
   const fileToBase64 = (file) => {
@@ -545,91 +972,58 @@ const UploadPage = () => {
   };
 
   const handleUpload = async () => {
-    if (uploadMode === "single" && !file) return;
-    if (uploadMode === "multiple" && files.length === 0) return;
+    if (files.length === 0) return;
 
     const startTime = Date.now();
     setStatus("uploading");
     setError(null);
 
     try {
-      if (uploadMode === "single") {
-        // Original single image upload flow
-        const formData = new FormData();
-        formData.append('image', file);
+      setStatus("processing");
 
-        setStatus("processing");
+      const images = await Promise.all(
+        files.map(async (file) => ({
+          fileName: file.name,
+          fileType: file.type,
+          imageData: await fileToBase64(file)
+        }))
+      );
 
-        const response = await axios.post(`${API_URL}/api/direct-upload`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000
+      const response = await axios.post(`${API_URL}/api/upload-more`, {
+        images
+      }, { timeout: 120000 }); // Longer timeout for multiple images
+
+      const ms = Date.now() - startTime;
+      setProcessingTime(ms);
+
+      if (response.data.success) {
+        const payload = response.data.data;
+        setAnalysisResult({
+          ...payload,
+          multiImageAnalysis: response.data.data.imageAnalysis
         });
+        setStatus("ready");
 
-        const ms = Date.now() - startTime;
-        setProcessingTime(ms);
+        // Use the actual selected image URL from the server response
+        const selectedImageUrl = payload.imageUrl || payload.imageAnalysis?.selectedImage?.url;
+        const selectedImageIndex = payload.imageAnalysis?.selectedImage?.index || 0;
 
-        if (response.data.success) {
-          const payload = response.data.data;
-          setAnalysisResult(payload);
-          setStatus("ready");
+        // Use server image URL when available
+        const imageToDisplay = selectedImageUrl || (previews[selectedImageIndex] || previews[0]);
 
-          addUpload({
-            previewUrl: preview,
-            title: payload.generatedContent?.title || "Untitled product",
-            box: payload.shippingData?.singleItem?.recommendedBox || "—",
-            createdAt: Date.now(),
-            shopifyHandle: null
-          });
-        } else {
-          throw new Error(response.data.details || 'Analysis failed');
-        }
+        addUpload({
+          previewUrl: imageToDisplay,
+          title: payload.generatedContent?.title || "Untitled product",
+          box: payload.shippingData?.singleItem?.recommendedBox || "—",
+          createdAt: Date.now(),
+          shopifyHandle: null,
+          multiImage: true,
+          totalImages: files.length,
+          selectedImageIndex,
+          selectedImageUrl
+        });
       } else {
-        // New multiple image upload flow
-        setStatus("processing");
-
-        const images = await Promise.all(
-          files.map(async (file) => ({
-            fileName: file.name,
-            fileType: file.type,
-            imageData: await fileToBase64(file)
-          }))
-        );
-
-        const response = await axios.post(`${API_URL}/api/upload-more`, {
-          images
-        }, { timeout: 120000 }); // Longer timeout for multiple images
-
-        const ms = Date.now() - startTime;
-        setProcessingTime(ms);
-
-        if (response.data.success) {
-          const payload = response.data.data;
-          setAnalysisResult({
-            ...payload,
-            multiImageAnalysis: response.data.data.imageAnalysis
-          });
-          setStatus("ready");
-
-          // Use the actual selected image URL from the server response
-          const selectedImageUrl = payload.imageUrl || payload.imageAnalysis?.selectedImage?.url;
-          const selectedImageIndex = payload.imageAnalysis?.selectedImage?.index || 0;
-
-          // Use server image URL when available
-          const imageToDisplay = selectedImageUrl || (previews[selectedImageIndex] || previews[0]);
-
-          addUpload({
-            previewUrl: imageToDisplay,
-            title: payload.generatedContent?.title || "Untitled product",
-            box: payload.shippingData?.singleItem?.recommendedBox || "—",
-            createdAt: Date.now(),
-            shopifyHandle: null,
-            multiImage: true,
-            totalImages: files.length,
-            selectedImageIndex,
-            selectedImageUrl
-          });
-        } else {
-          throw new Error(response.data.details || 'Analysis failed');
-        }
+        throw new Error(response.data.details || 'Analysis failed');
       }
     } catch (err) {
       console.error('Upload/Analysis Error:', err);
@@ -645,130 +1039,184 @@ const UploadPage = () => {
 
   return (
     <Container className="upload">
-      <div className="cols">
-        <div className="card">
+      <div className="cols" style={{ alignItems: 'stretch', gap: '16px' }}>
+        <AIAgentWrapper
+          isActive={status === "processing" || status === "uploading"}
+          className="card"
+          style={{
+            flex: '1',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '400px',
+            height: 'auto'
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <p className="label">1) Upload product image(s)</p>
-            <div className="row gap" style={{ fontSize: '12px' }}>
-              <button
-                className={`btn ${uploadMode === "single" ? "primary" : ""}`}
-                onClick={switchToSingle}
-                style={{ padding: '4px 8px' }}
-              >
-                Single Image
-              </button>
-              <button
-                className={`btn ${uploadMode === "multiple" ? "primary" : ""}`}
-                onClick={switchToMultiple}
-                style={{ padding: '4px 8px' }}
-              >
-                Multiple Images
-              </button>
-            </div>
+            <p className="label">1) Upload product images</p>
+            {(status === "processing" || status === "uploading") && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="ai-loading-dots">
+                  <div className="ai-loading-dot"></div>
+                  <div className="ai-loading-dot"></div>
+                  <div className="ai-loading-dot"></div>
+                </div>
+                <span style={{ fontSize: '12px', color: '#10b981', fontWeight: '600' }}>
+                  AI Agent Active
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="dropzone">
-            {uploadMode === "single" ? (
-              // Single image UI
-              <>
-                {preview ? <img src={preview} alt="preview" className="preview" /> : (
-                  <div className="dz-empty">
-                    <Upload size={28} />
-                    <p className="muted">Drag & drop or choose a JPG/PNG (under 5MB)</p>
+            {previews.length > 0 ? (
+              <div className="image-grid-container">
+                {previews.map((preview, index) => (
+                  <div key={index} className="image-grid-item">
+                    <img src={preview} alt={`preview ${index + 1}`} className="image-grid-img" />
+                    <div className="image-grid-badge">
+                      {index + 1}
+                    </div>
                   </div>
-                )}
-                <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-              </>
+                ))}
+              </div>
             ) : (
-              // Multiple images UI
-              <>
-                {previews.length > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px', marginBottom: '12px' }}>
-                    {previews.map((preview, index) => (
-                      <div key={index} style={{ position: 'relative' }}>
-                        <img src={preview} alt={`preview ${index + 1}`} style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px' }} />
-                        <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', borderRadius: '12px', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
-                          {index + 1}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="dz-empty">
-                    <Upload size={28} />
-                    <p className="muted">Choose 2-5 images • AI will pick the best one</p>
-                  </div>
-                )}
-                <input ref={multiInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onMultipleFiles(e.target.files)} />
-              </>
+              <div className="dz-empty">
+                <Upload size={28} />
+                <p className="muted">Choose 1-5 images • AI will pick the best one</p>
+              </div>
             )}
-
             <div className="row gap">
               <button className="btn" onClick={handleChoose}>
-                {uploadMode === "single" ? "Choose file" : `Choose images ${files.length > 0 ? `(${files.length})` : ""}`}
+                Choose images {files.length > 0 ? `(${files.length})` : ""}
               </button>
-              <button
-                className="btn primary"
-                disabled={
-                  (uploadMode === "single" && !file) ||
-                  (uploadMode === "multiple" && files.length === 0) ||
-                  status === "uploading" ||
-                  status === "processing"
-                }
-                onClick={handleUpload}
-              >
-                {status === "processing" ? "Analyzing..." : uploadMode === "multiple" ? "Analyze & Pick Best" : "Analyze with AI"}
-              </button>
+              {files.length > 0 && (
+                <button
+                  className={`btn ${status === "processing" ? "ai-primary" : "primary"}`}
+                  disabled={status === "uploading" || status === "processing"}
+                  onClick={handleUpload}
+                >
+                  {status === "processing" ? (
+                    <>
+                      <Wand2 size={16} />
+                      AI Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={16} />
+                      Analyze & Pick Best
+                    </>
+                  )}
+                </button>
+              )}
             </div>
+            <input
+              ref={multiInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => onMultipleFiles(e.target.files)}
+            />
+          </div>
 
-            {uploadMode === "multiple" && files.length > 0 && (
-              <p className="muted" style={{ marginTop: '8px', fontSize: '12px' }}>
-                🤖 AI will analyze all {files.length} images and automatically select the best one for your listing
-              </p>
+          {files.length > 0 && status === "idle" && (
+            <p className="muted" style={{ marginTop: '8px', fontSize: '12px' }}>
+              AI will analyze all {files.length} images and automatically select the best one for your listing
+            </p>
+          )}
+        </AIAgentWrapper>
+
+        <div className="card" style={{
+          flex: '1',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '400px',
+          height: 'auto'
+        }}>
+          <p className="label">2) AI Agent Status</p>
+
+          {/* AI Status Message */}
+          {aiMessage && (
+            <AIStatusMessage
+              message={aiMessage}
+              submessage={aiSubmessage}
+              type={status === "error" ? "error" : status === "ready" ? "completed" : "processing"}
+              icon={status === "error" ? AlertCircle : status === "ready" ? CheckCircle : Wand2}
+            />
+          )}
+
+          {/* AI Progress Steps */}
+          {(status === "processing" || status === "ready") && (
+            <AIProgressSteps
+              steps={aiProgressSteps}
+              currentStep={currentStep}
+            />
+          )}
+
+          <div style={{ flex: '1', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+            {status === "error" && (
+              <div className="result" style={{borderColor: '#ef4444', background: '#fef2f2'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626'}}>
+                  <AlertCircle size={16} />
+                  <p className="result-title" style={{color: '#dc2626', margin: 0}}>Analysis Failed</p>
+                </div>
+                <p style={{margin: '8px 0', fontSize: '14px', color: '#7f1d1d'}}>{error}</p>
+                <button className="btn ai-secondary" onClick={handleRetry}>
+                  <Zap size={16} />
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            {status === "idle" && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flex: 1,
+                color: '#6b7280',
+                textAlign: 'center',
+                gap: '12px',
+                minHeight: '250px'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+                  border: '2px solid rgba(16, 185, 129, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Wand2 size={24} color="#10b981" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+                    {files.length === 0 ? "AI Agent Ready" : "Ready to Analyze"}
+                  </div>
+                  <div style={{ fontSize: '13px' }}>
+                    {files.length === 0 ? "Upload images to begin analysis" : `${files.length} images selected. Click analyze to continue.`}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
-
-        <div className="card">
-          <p className="label">2) Status</p>
-          <ol className="status">
-            {[
-              { key: "uploading", label: uploadMode === "multiple" ? "Processing images..." : "Processing image..." },
-              { key: "processing", label: uploadMode === "multiple" ? "🧠 Gemini analyzing & selecting best image" : "🧠 Gemini Vision analyzing product" },
-              { key: "ready", label: "Analysis complete!" },
-            ].map(({ key, label }) => (
-              <li key={key} className={`status-row ${status === key ? "active" : status === "idle" || status === "error" ? "" : "dim"}`}>
-                <span className={`dot ${status === key ? "pulse" : ""}`} />
-                <span className={`status-text ${status === key ? "bold" : ""}`}>{label}</span>
-              </li>
-            ))}
-          </ol>
-
-          {status === "error" && (
-            <div className="result" style={{borderColor: '#ef4444', background: '#fef2f2'}}>
-              <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626'}}>
-                <AlertCircle size={16} />
-                <p className="result-title" style={{color: '#dc2626', margin: 0}}>Analysis Failed</p>
-              </div>
-              <p style={{margin: '8px 0', fontSize: '14px', color: '#7f1d1d'}}>{error}</p>
-              <button className="btn" onClick={handleRetry}>Try Again</button>
-            </div>
-          )}
-
-          {status === "ready" && analysisResult && (
-            <AnalysisResults result={analysisResult} processingTime={processingTime} />
-          )}
-
-          {status === "processing" && (
-            <div className="result" style={{background: '#f0f9ff', borderColor: '#0ea5e9'}}>
-              <p className="result-title">🧠 AI is analyzing your product...</p>
-              <p style={{margin: '8px 0', fontSize: '14px', color: '#0369a1'}}>
-                Gemini Vision is extracting product details, generating content, and optimizing shipping. This usually takes 5–15 seconds.
-              </p>
-            </div>
-          )}
-        </div>
       </div>
+
+      {status === "ready" && analysisResult && (
+        <AIAgentWrapper
+          isActive={true}
+          className="card"
+          style={{ marginTop: '16px', width: '100%', boxSizing: 'border-box', minWidth: '100%' }}
+        >
+          <div style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+            <AnalysisResults result={analysisResult} processingTime={processingTime} />
+          </div>
+        </AIAgentWrapper>
+      )}
     </Container>
   );
 };
@@ -787,10 +1235,10 @@ const LoginPage = ({ onLoggedIn }) => {
       setError("Enter your name and Shopify store domain");
       return;
     }
-    
+
     setLoading(true);
     setError("");
-    
+
     try {
       await login({ name, email, storeDomain: store });
       onLoggedIn();
@@ -895,6 +1343,79 @@ const DashboardPage = ({ user, onLogout }) => {
   );
 };
 
+// ========= Checkout Demo Page =========
+const CheckoutDemoPage = () => {
+  const [selectedShipping, setSelectedShipping] = useState(null);
+
+  const handleShippingSelect = (shippingOption) => {
+    setSelectedShipping(shippingOption);
+    console.log('Selected shipping option:', shippingOption);
+  };
+
+  return (
+    <Container className="upload">
+      <div className="cols">
+        {/* Cart Summary */}
+        <div className="card">
+          <h2 className="label">Your Order</h2>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span>3× Canvas Tote Bag</span>
+              <span>$75.00</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span>1× LEGO Architecture Set</span>
+              <span>$79.99</span>
+            </div>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '600' }}>
+              <span>Subtotal</span>
+              <span>$154.99</span>
+            </div>
+            {selectedShipping && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                  <span>Shipping ({selectedShipping.name})</span>
+                  <span>${selectedShipping.cost.toFixed(2)}</span>
+                </div>
+                <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '18px', color: 'var(--brand)' }}>
+                  <span>Total</span>
+                  <span>${(154.99 + selectedShipping.cost).toFixed(2)}</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              background: 'var(--bg-weak)',
+              padding: '12px',
+              borderRadius: '8px',
+              marginTop: '16px'
+            }}
+          >
+            <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Box size={16} /> Items to Ship
+            </h4>
+            <div style={{ fontSize: '13px', color: 'var(--text-weak)' }}>
+              • 3 soft canvas bags (15"×12"×6" each, 0.8 lbs)<br />
+              • 1 LEGO set box (18"×14"×3", 2.5 lbs)<br />
+              <br />
+              <strong>Challenge:</strong> Shopify would normally use 4 separate boxes, but AI optimization can find better combinations.
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Shipping Options */}
+        <ShippingOptimizer onShippingSelect={handleShippingSelect} />
+      </div>
+    </Container>
+  );
+};
+
 // ========= Root =========
 export default function App() {
   const { route, nav } = useHashRoute("home");
@@ -954,6 +1475,7 @@ export default function App() {
       {route === "shipping" && (authed ? <ShippingCalculator /> : <LoginPage onLoggedIn={handleLogin} />)}
       {route === "login" && <LoginPage onLoggedIn={handleLogin} />}
       {route === "dashboard" && (authed ? <DashboardPage user={user} onLogout={handleLogout} /> : <LoginPage onLoggedIn={handleLogin} />)}
+      {route === "checkout" && <CheckoutDemoPage />}
       <Footer />
     </div>
   );
