@@ -899,6 +899,7 @@ const UploadPage = () => {
   const [files, setFiles] = useState([]); // For images
   const [status, setStatus] = useState("idle"); // idle | uploading | processing | ready | error
   const [previews, setPreviews] = useState([]); // For image previews
+  const [textPrompt, setTextPrompt] = useState(""); // For user text input
   const [analysisResult, setAnalysisResult] = useState(null);
   const [error, setError] = useState(null);
   const [processingTime, setProcessingTime] = useState(0);
@@ -1038,7 +1039,7 @@ const UploadPage = () => {
   };
 
   const handleUpload = async () => {
-    if (files.length === 0) return;
+    if (files.length === 0 && !textPrompt.trim()) return;
 
     const startTime = Date.now();
     setStatus("uploading");
@@ -1056,7 +1057,8 @@ const UploadPage = () => {
       );
 
       const response = await axios.post(`${API_URL}/api/upload-more`, {
-        images
+        images,
+        textPrompt: textPrompt.trim() || null
       }, { timeout: 120000 }); // Longer timeout for multiple images
 
       const ms = Date.now() - startTime;
@@ -1107,7 +1109,14 @@ const UploadPage = () => {
     }
   };
 
-  const handleRetry = () => { setStatus("idle"); setError(null); setAnalysisResult(null); };
+  const handleRetry = () => { 
+    setStatus("idle"); 
+    setError(null); 
+    setAnalysisResult(null); 
+    setTextPrompt(""); 
+    setFiles([]);
+    setPreviews([]);
+  };
 
   return (
     <Container className="upload">
@@ -1207,7 +1216,7 @@ const UploadPage = () => {
               <button className="btn" onClick={handleChoose}>
                 Choose images {files.length > 0 ? `(${files.length})` : ""}
               </button>
-              {files.length > 0 && (
+              {(files.length > 0 || textPrompt.trim()) && (
                 <button
                   className={`btn ${status === "processing" ? "ai-primary" : "primary"}`}
                   disabled={status === "uploading" || status === "processing"}
@@ -1235,6 +1244,28 @@ const UploadPage = () => {
               className="hidden"
               onChange={(e) => onMultipleFiles(e.target.files)}
             />
+          </div>
+
+          {/* Text Prompt Section */}
+          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+            <p className="label" style={{ marginBottom: '8px' }}>Optional: Add a Prompt</p>
+            <textarea
+              className="text-input"
+              placeholder="Describe your product or provide additional context... (e.g., 'This is a premium leather handbag for professional women')"
+              value={textPrompt}
+              onChange={(e) => setTextPrompt(e.target.value)}
+              disabled={status === "uploading" || status === "processing"}
+              style={{
+                width: '100%',
+                minHeight: '80px',
+                resize: 'vertical',
+                fontSize: '14px',
+                lineHeight: '1.4'
+              }}
+            />
+            <p className="muted" style={{ marginTop: '4px', fontSize: '11px' }}>
+              Help us better understand your product with additional context or specific requirements.
+            </p>
           </div>
 
           {files.length > 0 && status === "idle" && (
